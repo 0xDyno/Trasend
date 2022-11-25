@@ -14,7 +14,7 @@ def is_web3(connection):
 
 class Manager:
 	__singleton = None
-	connection = None
+	connection: Web3 = None
 	list_with_wallets = list()
 
 	def __new__(cls, *args, **kwargs):
@@ -47,6 +47,16 @@ class Manager:
 		is_web3(connection)
 		self.connection = connection
 
+	def add_wallet(self):
+		pass
+
+	def delete_wallet(self):
+		pass
+
+	def generate_wallets(self, number=1):
+		"""Later realisation"""
+		pass
+
 	def load_list_with_wallets(self):
 		# Do if folder and file exist
 		if os.path.exists(settings.folder) and os.path.isfile(settings.saved_wallets):
@@ -64,13 +74,13 @@ class Manager:
 				self.list_with_wallets.append(address)
 
 	def save_wallets_list(self):
+		if not os.path.exists(settings.folder):  # Checking if the path exist
+			os.mkdir(settings.folder)
+
 		if not self.list_with_wallets:  # If no wallets - clear file
 			w = open(settings.saved_wallets, "w")
 			w.close()
 		else:
-			if not os.path.exists(settings.folder):  # Checking if the path exist
-				os.mkdir(settings.folder)
-
 			with open(settings.saved_wallets, "wb") as w:  # Save to the file
 
 				for wallet in self.list_with_wallets:  # For each wallet in the list
