@@ -4,7 +4,7 @@ ETH_ADDR_LENGTH = 42
 ETH_KEY_LENGTH = 66
 
 
-def get_the_dict_with_addresses(ask_divider=True, network=DEFAULT_NETWORK):
+def string_to_dict(ask_divider=True, network=DEFAULT_NETWORK):
     # Если своей разделитель - спросит его по дефолту
     if ask_divider:
         divider = ask_for_divider()
@@ -66,7 +66,7 @@ def print_the_dict(dict_with_addresses: dict):
 
 
 def main(ask_divider):
-    dict_with_addresses: dict = get_the_dict_with_addresses(ask_divider)
+    dict_with_addresses: dict = string_to_dict(ask_divider)
     print_the_dict(dict_with_addresses)
 
 
