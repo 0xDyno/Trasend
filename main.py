@@ -1,5 +1,6 @@
 from manager import Manager
 from web3 import Web3
+from config  import keys
 
 
 def start():
@@ -7,16 +8,18 @@ def start():
 
 
 def main():
-    m = Manager(Web3)
     for addr in m.list_with_wallets:
         print(addr.get_all_info())
 
 
 def end():
-    pass
+    m.save_wallets_list()
 
 
 if __name__ == "__main__":
+    w3 = Web3(Web3.HTTPProvider(keys.HTTPS))
+    m = Manager(w3)
+
     # The app is running
     main()
 

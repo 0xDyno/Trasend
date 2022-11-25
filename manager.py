@@ -1,13 +1,13 @@
 from web3 import Web3
 import os
 import pickle
-import settings
+from config import settings
 
 """Created class to manage wallets"""
 
 
 def is_web3(connection):
-	if connection != Web3:
+	if type(connection) is not Web3:
 		raise Exception("Can't create Manager because got wrong Connection type. "
 						f"Should be {Web3} object, got: {type(connection)}")
 
@@ -29,7 +29,7 @@ class Manager:
 
 	def __del__(self):
 		# Saving addresses
-		self.save_wallets_list()
+		# self.save_wallets_list()
 
 		Manager.__singleton = None
 
