@@ -7,8 +7,8 @@ from config import settings
 
 
 def is_web3(connection):
-	if type(connection) is not Web3:
-		raise Exception("Can't create Manager because got wrong Connection type. "
+	if isinstance(type(connection), Web3):
+		raise TypeError("Can't create Manager because got wrong Connection type. "
 						f"Should be {Web3} object, got: {type(connection)}")
 
 
@@ -59,7 +59,7 @@ class Manager:
 
 	def load_list_with_wallets(self):
 		# Do if folder and file exist
-		if os.path.exists(settings.folder) and os.path.isfile(settings.saved_wallets):
+		if os.path.isdir(settings.folder) and os.path.isfile(settings.saved_wallets):
 
 			with open(settings.saved_wallets, "rb") as r:
 				get_bytes = r.read()
