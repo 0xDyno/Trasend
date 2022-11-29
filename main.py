@@ -1,10 +1,9 @@
 import eth_account.signers.local
 import web3
-
-import config.keys
-from manager import Manager
 from web3 import Web3
+from manager import Manager
 from config.settings import *
+import config.keys
 
 
 def main():
@@ -39,14 +38,20 @@ def test():
     print(res, type(res))
     print(res.address)
     print(res.key)
+    checkSum = m.connection.toChecksumAddress("0xf64edd94558ca8b3a0e3b362e20bb13ff52ea513")
+    x = m.connection.eth.get_transaction_count(checkSum)
+    print(x)
 
 
 
 if __name__ == "__main__":
-    m = Manager(Web3(Web3.HTTPProvider(config.keys.HTTPS)))
+    m = Manager(Web3(Web3.HTTPProvider(config.keys.HTTPS_ETH)))
+
     # The app is running
     # main()
-    test()
+
+    # test()
+
     # Save data
     end()
 else:

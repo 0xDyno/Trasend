@@ -1,19 +1,22 @@
 class Wallet:
 
-    def get_all_info(self):
-        return f"{self.label} : {self.address} : {self.mnemonic} : {self.private_key}"
+    nonce = int()
+    address = str()
+    balance = float()
 
-    def __init__(self, address, label="None", mnemonic="None", private_key="None"):
+
+    def get_all_info(self):
+        return "%s. %s, balance: %.4f ETH" % self.label, self.address, self.balance
+
+    def get_private_key(self):
+        return self.__private_key
+
+    def __init__(self, private_key, label):
+        self.__private_key = private_key
         self.label = label
-        self.address = address
-        self.mnemonic = mnemonic
-        self.private_key = private_key
 
     def __str__(self):
-        if self.label != "None":
-            return f"{self.label}: {self.address}"
-        else:
-            return f"Address {self.address}"
+        return self.get_all_info()
 
     def __repr__(self):
         return self.__str__()
