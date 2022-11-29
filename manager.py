@@ -93,6 +93,9 @@ class Manager:
 					wallet.balance = balance
 					wallet.nonce = nonce
 
+					# Add to the list
+					self.list_with_wallets.append(wallet)
+
 					# Add Private Key and Label to sets
 					self.add_to_sets(key, label)
 			except Exception as e:
