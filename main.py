@@ -7,23 +7,24 @@ import config.keys
 
 
 def main():
-    print("%s\n---------------------" % instruction)
+    print("\n%s\n---------------------" % main_text_instruction)
     while text := input("").lower():
         match text:
             case "1":
-                for wallet in m.list_with_wallets:
-                    print(wallet)
+                m.print_wallets()
             case "2":
                 m.add_wallet()
             case "3":
                 m.delete_wallet()
             case "4":
                 print(f"Connection status: {m.connection.isConnected()}")
+            case "5":
+                m.update_wallets()
             case "exit":
                 break
             case _:
                 print("Wrong command. Try again.")
-        print("\n%s\n---------------------" % instruction)
+        print("\n%s\n---------------------" % main_text_instruction)
 
 
 
@@ -38,8 +39,8 @@ def test():
     print(res, type(res))
     print(res.address)
     print(res.key)
-    checkSum = m.connection.toChecksumAddress("0xf64edd94558ca8b3a0e3b362e20bb13ff52ea513")
-    x = m.connection.eth.get_transaction_count(checkSum)
+    # checkSum = m.connection.toChecksumAddress("0xf64edd94558ca8b3a0e3b362e20bb13ff52ea513")
+    x = m.connection.eth.get_transaction_count(res.address)
     print(x)
 
 
@@ -47,12 +48,16 @@ def test():
 if __name__ == "__main__":
     m = Manager(Web3(Web3.HTTPProvider(config.keys.HTTPS_ETH)))
 
-    # The app is running
-    # main()
+    try:
+        # The app is running
+        main()
 
-    # test()
+        # test()
+    finally:
+        # Save data
+        end()
 
-    # Save data
-    end()
+
+
 else:
     print("Nope")

@@ -6,7 +6,11 @@ class Wallet:
 
 
     def get_all_info(self):
-        return "%s. %s, balance: %.4f ETH" % self.label, self.address, self.balance
+        if self.balance is int():
+            return "%s: %s, balance: %d ETH" % (self.label, self.address, self.balance)
+        else:
+            return "%s. %s, balance: %.4f ETH" % (self.label, self.address, self.balance)
+
 
     def get_private_key(self):
         return self.__private_key
