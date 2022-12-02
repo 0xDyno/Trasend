@@ -2,7 +2,7 @@ import eth_account.signers.local
 import web3
 from web3 import Web3
 from manager import Manager
-from config.settings import *
+from config.settings import main_text_instruction
 import config.keys
 
 
@@ -15,11 +15,18 @@ def main():
             case "2":
                 m.add_wallet()
             case "3":
-                m.delete_wallet()
+                number = input("How many wallets generate? (up to 100) >>> ")
+                if number.isnumeric():
+                    m.generate_wallets(int(number))
+                else:
+                    print("Not a number")
             case "4":
-                print(f"Connection status: {m.connection.isConnected()}")
+                m.delete_wallet()
             case "5":
+                print(f"Connection status: {m.connection.isConnected()}")
+            case "6":
                 m.update_wallets()
+                print("Successfully updated")
             case "exit":
                 break
             case _:
@@ -33,31 +40,22 @@ def end():
 
 
 def test():
-    print(Web3.isAddress("0x55A1237c375b2a0F87e7e5CD0D782005844F771B"))
-    print(m.connection.eth.get_balance("0x55A1237c375b2a0F87e7e5CD0D782005844F771B"))
-    res: eth_account.signers.local.LocalAccount = web3.Account.privateKeyToAccount("0xbeef2eea6c075377eb78100fa682df3aa46cdcaeb4f09d68482c74f1679bd3ca")
-    print(res, type(res))
-    print(res.address)
-    print(res.key)
-    # checkSum = m.connection.toChecksumAddress("0xf64edd94558ca8b3a0e3b362e20bb13ff52ea513")
-    x = m.connection.eth.get_transaction_count(res.address)
-    print(x)
-
+    pass
 
 
 if __name__ == "__main__":
-    m = Manager(Web3(Web3.HTTPProvider(config.keys.HTTPS_ETH)))
+    # m = Manager(Web3(Web3.HTTPProvider(config.keys.HTTPS_ETH)))
+    m = Manager(Web3(Web3.HTTPProvider(config.keys.HTTPS_GOERLI)))
 
     try:
         # The app is running
         main()
 
         # test()
+    except KeyboardInterrupt:
+        print("Exited by Keyboard Interruption")
     finally:
         # Save data
         end()
-
-
-
 else:
     print("Nope")

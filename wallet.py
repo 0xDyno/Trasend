@@ -2,21 +2,22 @@ class Wallet:
 
     nonce = int()
     address = str()
-    balance = float()
+    balance_in_wei = int()
 
 
     def get_all_info(self):
-        if self.balance is int():
-            return "%s: %s, balance: %d ETH" % (self.label, self.address, self.balance)
-        else:
-            return "%s. %s, balance: %.4f ETH" % (self.label, self.address, self.balance)
+        format_ = "%s: %s (balance: %.4f ETH)"
+        return format_ % (self.label, self.address, self.get_eth_balance())
 
 
     def get_private_key(self):
-        return self.__private_key
+        return self.__key
+
+    def get_eth_balance(self):
+        return self.balance_in_wei / 10**18
 
     def __init__(self, private_key, label):
-        self.__private_key = private_key
+        self.__key = private_key
         self.label = label
 
     def __str__(self):
