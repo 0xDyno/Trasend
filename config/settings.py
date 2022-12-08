@@ -7,13 +7,13 @@ address_length = 42
 """ For Manager """		#################################################
 
 separator = " | "
-folder = "saved/"
-file_name = "saved_addresses.pickle"
-saved_wallets = folder + file_name
-print_tech_info = False					# prints additionally info
+folder = "private/"
+saved_wallets = folder + "saved_data"
+crypto_key = folder + "key"
 
 """Daemons"""			#################################################
 ETH_block_time = 3		# 12 secs for ETH
+print_daemons_info = False			# prints info from daemons - ?
 
 
 """Transactions"""		#################################################

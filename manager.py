@@ -1,5 +1,3 @@
-import threading
-
 from web3 import (
 	Web3,
 	Account
@@ -8,14 +6,64 @@ from config import text, settings
 from wallet import Wallet
 from random import random
 from threading import *
-from time import time, sleep
+from time import sleep
+from datetime import date
+from cryptography.fernet import Fernet
 import os, pickle
 
 
 def is_web3(connection):
-	if isinstance(type(connection), Web3):
+	"""
+	Checks the connection is Web3
+	"""
+	if not isinstance(connection, Web3):
 		raise TypeError("Can't create Manager because got wrong Connection type. "
-						f"Should be {Web3} object, got: {type(connection)}")
+						f"Should be {Web3} object, got: {connection}")
+
+
+def check_save_load_files():
+	"""Checks if the directory and files exist.
+	If everything exist - does nothing.
+	If nothing exist - creates everything.
+	For more - read the code ^_^					"""
+	def create_cryptography_key():				# Meth to create cryptography key
+		with open(settings.crypto_key, "wb") as w:
+			w.write(Fernet.generate_key())
+
+	if not os.path.isdir(settings.folder):			# If no Folder, then create:
+		os.mkdir(settings.folder)					# - folder
+		open(settings.saved_wallets, "w").close()	# - file
+		create_cryptography_key()					# - cryptography key
+	else:
+		# if File and Key exists - do Nothing.
+		if os.path.exists(settings.saved_wallets) and os.path.exists(settings.crypto_key):
+			return 	# The most popular situation, put upfront to save time on useless checks...
+
+		# no File - no Key		-->> create files
+		if not os.path.exists(settings.saved_wallets) and not os.path.exists(settings.crypto_key):
+			open(settings.saved_wallets, "w").close()  	# create file
+			create_cryptography_key()  					# create cryptography key
+
+		# no File - yes Key		-->> create file
+		elif not os.path.exists(settings.saved_wallets) and os.path.exists(settings.crypto_key):
+			open(settings.saved_wallets, "w").close()  	# create file
+
+		# yes File - no Key		-->> problem.. rename old_file and create new key + file
+		else:
+			# creation_date_in_ns = os.stat(settings.saved_wallets).st_birthtime	# get the date of creation in ns
+			# creation_date = str(date.fromtimestamp(creation_date_in_ns))			# transform into YYYY-MM-DD
+			creation_date = str(date.fromtimestamp(os.stat(settings.saved_wallets).st_birthtime))	# one line
+			os.rename(settings.saved_wallets,  f"{settings.saved_wallets}_old_{creation_date}")
+
+			print(":::: rename - create K F")
+			open(settings.saved_wallets, "w").close()  	# create file
+			create_cryptography_key()  					# create cryptography key
+
+
+def get_fernet_key():
+	with open(settings.crypto_key, "rb") as r:
+		return r.read()
+
 
 """Class Manager to manage wallets"""
 
@@ -381,7 +429,7 @@ class Manager:
 
 				self.update_last_block()
 
-				if settings.print_tech_info:
+				if settings.print_daemons_info:
 					print("Daemon, updated the last block, current block is", self.last_block["number"])
 
 				sleep(settings.ETH_block_time)
@@ -393,43 +441,38 @@ class Manager:
 # Import-Export methods
 
 	def load_list_with_wallets(self):
-		# Printing info - beginning
-		print(text.new_text_load_the_wallets, end=" ")
+		print(text.new_text_load_the_wallets, end=" ")				# Beginning - tell started to work
+		check_save_load_files()
+		fernet = Fernet(get_fernet_key())
 
-		# Work - Do if folder and file exist
-		if os.path.isdir(settings.folder) and os.path.isfile(settings.saved_wallets):
+		with open(settings.saved_wallets, "rb") as r:		# get Bytes
+			bytes_ = r.read()
 
-			with open(settings.saved_wallets, "rb") as r:
-				get_bytes = r.read()
-				# Separate string by separator and add to the list
-				list_of_bytes = get_bytes.split(settings.separator.encode())
-
-			for element in list_of_bytes:
-				if not element:  # pass if empty
-					continue
-
-				address = pickle.loads(element)
-				self.list_with_wallets.append(address)
-
-		# Printing info - end
-		if not self.list_with_wallets:
-			print(text.new_text_not_wallets_to_load)
+		if not bytes_:
+			print(text.new_text_not_wallets_to_load)				# End - tell no wallets to load
 		else:
-			print(text.success)
+			decrypted_bytes = fernet.decrypt(bytes_)  		# decrypt Bytes
+
+			for element in decrypted_bytes.split(settings.separator.encode()):
+				if element: 								# if element - exist
+					wallet = pickle.loads(element)			# load
+					self.list_with_wallets.append(wallet)	# add
+			print(text.success)										# End - tell success
 
 	def save_wallets_list(self):
-		if not os.path.exists(settings.folder):  	# Checking if the path exist
-			os.mkdir(settings.folder)
+		check_save_load_files()
+		fernet = Fernet(get_fernet_key())
 
-		if not self.list_with_wallets:  			# If no wallets - clear file
-			w = open(settings.saved_wallets, "w")
-			w.close()
+		if not self.list_with_wallets:  	# If no wallets in the list - clear file
+			open(settings.saved_wallets, "w").close()
 		else:
-			with open(settings.saved_wallets, "wb") as w:  	# Save to the file
+			data_to_save = bytes()
+			# For each wallet in the list - dump it and add separator
+			for wallet in self.list_with_wallets:
+				data_to_save = data_to_save + pickle.dumps(wallet) + settings.separator.encode()
 
-				for wallet in self.list_with_wallets:  		# For each wallet in the list
-					w.write(pickle.dumps(wallet))  			# save it and
-					w.write(settings.separator.encode())  	# add separator
+			with open(settings.saved_wallets, "wb") as w:  	# Save data with wallets
+				w.write(fernet.encrypt(data_to_save))		# after fernet encrypt it
 
 # Finish
 

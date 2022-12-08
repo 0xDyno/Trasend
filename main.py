@@ -1,5 +1,3 @@
-import eth_account.signers.local
-import web3
 from web3 import Web3
 from manager import Manager
 from config.text import main_text_instruction
@@ -34,8 +32,10 @@ def main():
             case "9":   # ??
                 pass
             case "t":
-                print(m.get_wallet_index_from_list())
                 pass
+                # key = Fernet.generate_key()
+                # with open("crypto.key", "wb") as w:
+                #     w.write(key)
             case "exit":
                 break
             case "e":
