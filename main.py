@@ -33,9 +33,6 @@ def main():
                 pass
             case "t":
                 pass
-                # key = Fernet.generate_key()
-                # with open("crypto.key", "wb") as w:
-                #     w.write(key)
             case "exit":
                 break
             case "e":
