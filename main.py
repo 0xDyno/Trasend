@@ -27,7 +27,6 @@ def main():
                 print(f"Connection status: {m.web3.isConnected()}")
             case "6":
                 m.update_wallets()
-                print("Successfully updated")
             case "7":
                 m.print_block_info()
             case "8":   # Send Transaction
