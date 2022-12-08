@@ -3,6 +3,8 @@ class Wallet:
     nonce = int()
     address = str()
     balance_in_wei = int()
+    txs = list()                # list with Transaction objects
+
 
 
     def get_all_info(self):
@@ -10,7 +12,7 @@ class Wallet:
         return format_ % (self.label, self.address, self.get_eth_balance())
 
 
-    def get_private_key(self):
+    def key(self):
         return self.__key
 
     def get_eth_balance(self):
@@ -25,3 +27,9 @@ class Wallet:
 
     def __repr__(self):
         return self.__str__()
+
+
+class Transaction:
+    date = str()
+    type = bool() # True - sent, False - received
+    tx = str()
