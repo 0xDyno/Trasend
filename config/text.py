@@ -25,7 +25,7 @@ add_input_private_key = "Write your private key:"
 add_error_wrong_format = f"Error, it isn't private key. " \
 						 f"Key should start with 0x and Length should be {str(private_key_length)}"
 add_error_wrong_already_exist = "Error, this wallet already exist in the system"
-add_ask_label = "Write desired label (or empty to get random) >>> "
+add_ask_label = "Write desired label (or Enter to get random) >>> "
 
 # Delete an acc, remove_wallet() method:
 del_instruction_to_delete_wallet = """3 ways to delete wallets:
@@ -51,7 +51,7 @@ text_no_wallets = "No wallets"
 text_enter_wallet_or_number = "Enter wallet address or it's number:"
 error_add_to_set = "Error in \"add_to_set\" method, the key or label already exist in the set"
 error_delete_from_set = "Error in \"delete_from_set\" method, there's no such key or label in the set"
-error_more_than_100 = "I don't generate more wallets, than 100. Choose another number"
+error_wrong_generate_number = "I don't generate less, than 1 and more, than 100. Try again and choose another number"
 error_no_such_address = "The address you wrote doesn't exist in the system"
 error_not_number_or_address = "Error, not number or address"
 error_block_doesnt_exist_yet = "The block doesn't exist in the blockchain yet"

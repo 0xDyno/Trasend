@@ -63,6 +63,8 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         print("Exited by Keyboard Interruption")
+    except Exception as e:
+        print(e)
     finally:
         m.finish_work()
 else:

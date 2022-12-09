@@ -16,6 +16,18 @@ Not important methods/functions which doesn't work with data directly will be he
 """
 
 
+def is_number(e: str) -> bool:
+	"""Returns is it a number or no... isnumeric() returns False when '-1'
+	:param e: str
+	:return: True or False
+	"""
+	try:
+		int(e)
+		return True
+	except ValueError:
+		return False
+
+
 def is_web3(connection):
 	"""
 	Checks the connection is Web3
@@ -109,8 +121,8 @@ def update_wallet(web3, wallet):
 	"""
 	if isinstance(wallet, Wallet):
 		if not wallet.addr:  						# if the wallet doesn't have address
-			key = wallet.key()  											# get private key
-			wallet.addr = Account.privateKeyToAccount(key).addr  		# parse the address and add
+			key = wallet.key()  										# get private key
+			wallet.addr = Account.privateKeyToAccount(key).address  	# parse the address and add
 
 		wallet.balance_in_wei = web3.eth.get_balance(wallet.addr)  		# update balance
 		wallet.nonce = web3.eth.get_transaction_count(wallet.addr)  		# update nonce
@@ -142,33 +154,32 @@ def generate_wallets(web3, set_labels, set_keys, number) -> list:
 		print(i+1, end="")			# just "progress bar", will write number of created acc
 		if i+1 < number:			# and if it's not the last one
 			print("..", end="")		# add ... between them
-		print()						# end of the "progress bar", xD
+	print()							# end of the "progress bar", xD
+	return new_generated_wallets
 
-		return new_generated_wallets
 
-
-def get_wallet_index_by_text(wallets_list, set_addr, text) -> int:
+def get_wallet_index_by_text(wallets_list: list, set_addr: set, string) -> int:
 	"""
 	Gives index of the wallet in list by text.
 
 	:param wallets_list: list with wallets
 	:param set_addr: set with addresses
-	:param text: address or number of the wallet
+	:param string: address or number of the wallet
 	:return: Index of selected Wallet in the list
 	"""
 	total_wallets = len(wallets_list)
 
-	if text.isnumeric():  # get number if it's number
-		number = int(text)
-		if number == 0 or number > total_wallets:		# if 0 or > wallets in list
+	if is_number(string):  # get number if it's number
+		number = int(string)
+		if number > total_wallets or number < 1:		# if N > wallets in list or < 1
 			raise IndexError("Wrong number")  			# throw IndexError
 		return number - 1  								# if not - return Index
-	elif not text.startswith("0x") or len(text) != settings.address_length:
+	elif not string.startswith("0x") or len(string) != settings.address_length:
 		raise Exception(text.error_not_number_or_address)
 	else:
-		if text not in set_addr:  # if there's no such wallet
+		if string not in set_addr:  # if there's no such wallet
 			raise Exception(text.error_no_such_address)  # throw error
 		else:
 			for index in range(total_wallets):  # else find its Index
-				if wallets_list[index].addr == text:
+				if wallets_list[index].addr == string:
 					return index  # end return

@@ -163,19 +163,19 @@ class Manager:
 			self.wallets_list.append(wallet)				# add to the list
 			self.add_to_sets(wallet)						# add to the sets
 
-	def delete_wallet(self, wal=0):
+	def delete_wallet(self, index):
 		"""
 		Deletes wallet from list and sets by its Index in the list or Wallet obj.
-		If no argument - deletes the last one
-		:param wal: Wallet obj or number
+		:param index: wallet Index in the list OR wallet Obj in the list
 		"""
-		if isinstance(wal, Wallet):						# if it's wallet - get it's index
+		if isinstance(index, Wallet):						# if it's wallet - get it's index
 			for i in range(len(self.wallets_list)):
-				if wal is self.wallets_list[i]:
-					wal = i
+				if index is self.wallets_list[i]:
+					index = i
+					break
 
-		if isinstance(wal, int):
-			wallet = self.wallets_list.pop(wal)  				# del from the list
+		if isinstance(index, int):
+			wallet = self.wallets_list.pop(index)  				# del from the list
 			self.delete_from_sets(wallet)  						# del from the sets
 			print(text.del_successfully_deleted, wallet.addr)  	# print about success
 			del wallet
@@ -215,7 +215,9 @@ class Manager:
 				print(f"Something wrong, mistake: {e}\nTry again.")
 
 	def try_delete_wallet(self):
-		""" Realisation of deleting wallets -> certain wallet, last, last N or all """
+		""" Realisation of deleting wallets -> certain wallet, last, last N or all
+		If change - be careful with .lower method !!
+		"""
 		while True:
 			try:
 				if not self.wallets_list:						# If no wallets
@@ -232,8 +234,12 @@ class Manager:
 
 				# Processing the input
 				process_line = line.lower()
-				if process_line.startswith("last"):
-
+				if process_line == "all":				# if all
+					self.wallets_list.clear()
+					self.set_addr.clear()
+					self.set_labels.clear()
+					self.set_keys.clear()
+				elif process_line.startswith("last"):
 					if process_line == "last":							# if only last
 						how_many_delete = 1								# it's 1 wallet
 					else:
@@ -241,21 +247,19 @@ class Manager:
 
 					for i in range(how_many_delete):					# do N times
 						last_index = len(self.wallets_list) - 1			# - get last index
-						self.delete_wallet(last_index)			# - delete it
-				elif process_line == "all":
-					for i in range(len(self.wallets_list)):		# delete all
-						self.delete_wallet()
+						self.delete_wallet(last_index)					# - delete it
 				else:											# else get wallet index
 					index = assist.get_wallet_index_by_text(self.wallets_list.copy(),
 															self.set_addr.copy(),
-															process_line)
+															line)
 					self.delete_wallet(index)					# delete it
 			except Exception as e:
+				print(e)
 				print("Something went wrong:", e, end="\n\n")
 
 	def generate_wallets(self, number=1):
-		if number > 100:
-			print(text.error_more_than_100)
+		if number > 100 or number < 1:
+			print(text.error_wrong_generate_number)
 		else:
 			# get the list with new generated wallets
 			new_generated_wallets = assist.generate_wallets(self.web3,
