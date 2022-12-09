@@ -22,8 +22,8 @@ t - for tests
 
 # Import an acc, add_wallet() method:
 add_input_private_key = "Write your private key:"
-add_error_wrong_length = "Error, it isn't private key, length should be " + str(private_key_length)
-add_error_wrong_first_symbols = "Error, it is not private key. Private key should start with 0x"
+add_error_wrong_format = f"Error, it isn't private key. " \
+						 f"Key should start with 0x and Length should be {str(private_key_length)}"
 add_error_wrong_already_exist = "Error, this wallet already exist in the system"
 add_ask_label = "Write desired label (or empty to get random) >>> "
 
@@ -57,3 +57,4 @@ error_not_number_or_address = "Error, not number or address"
 error_block_doesnt_exist_yet = "The block doesn't exist in the blockchain yet"
 error_no_info_about_last_block = "No info about the last block"
 success = "success"
+fail = "fail"

@@ -1,6 +1,6 @@
-from web3 import Web3
 from manager import Manager
 from config.text import main_text_instruction
+from web3 import Web3
 import config.keys
 
 
@@ -12,7 +12,7 @@ def main():
             case "1":
                 m.print_wallets()
             case "2":
-                m.add_wallet()
+                m.try_add_wallet()
             case "3":
                 number = input("How many wallets generate? (up to 100) >>> ")
                 if number.isnumeric():
@@ -20,7 +20,7 @@ def main():
                 else:
                     print("Not a number")
             case "4":
-                m.delete_wallet()
+                m.try_delete_wallet()
             case "5":
                 print(f"Connection status: {m.web3.isConnected()}")
             case "6":
@@ -28,6 +28,18 @@ def main():
             case "7":
                 m.print_block_info()
             case "8":   # Send Transaction
+                """
+                ну да, не самое простое... 
+                Нужно решить куда захламлять код - если в менеджен - он будет дохера большой
+                Если делать отдельный файл - то это будут функции, либо классы... классы тоже Ок
+                Чисто функциональные
+                
+                А то менеджер дофига большой, и это факт. Всё что возможно - лучше вынести в помощника:
+                print wallets - и пусть у себя будет, вызывает метод с помощника
+                print_block_info - с передачей менеджера
+                А транзы - в свой файл. 
+                
+                """
                 pass
             case "9":   # ??
                 pass

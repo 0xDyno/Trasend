@@ -1,7 +1,7 @@
 class Wallet:
 
     nonce = int()
-    address = str()
+    addr = str()
     balance_in_wei = int()
     txs = list()                # list with Transaction objects
 
@@ -9,7 +9,7 @@ class Wallet:
 
     def get_all_info(self):
         format_ = "%s: %s (balance: %.4f ETH)"
-        return format_ % (self.label, self.address, self.get_eth_balance())
+        return format_ % (self.label, self.addr, self.get_eth_balance())
 
 
     def key(self):

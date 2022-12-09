@@ -108,32 +108,36 @@ def update_wallet(web3, wallet):
 	After that it updates balance and transaction count
 	"""
 	if isinstance(wallet, Wallet):
-		if not wallet.address:  						# if the wallet doesn't have address
+		if not wallet.addr:  						# if the wallet doesn't have address
 			key = wallet.key()  											# get private key
-			wallet.address = Account.privateKeyToAccount(key).address  		# parse the address and add
+			wallet.addr = Account.privateKeyToAccount(key).addr  		# parse the address and add
 
-		wallet.balance_in_wei = web3.eth.get_balance(wallet.address)  		# update balance
-		wallet.nonce = web3.eth.get_transaction_count(wallet.address)  		# update nonce
+		wallet.balance_in_wei = web3.eth.get_balance(wallet.addr)  		# update balance
+		wallet.nonce = web3.eth.get_transaction_count(wallet.addr)  		# update nonce
 	else:
 		print(text.upd_error_not_wallet)
 
 
-def generate_wallets(web3, set_with_labels, set_with_private_keys, number) -> list:
+def generate_wallet(web3, set_labels, set_keys) -> Wallet:
+	"""Generates unique 1 wallet (key + label) and return it"""
+	while True:
+		key = web3.toHex(web3.eth.account.create().key)  	# get private key
+		if key not in set_keys:  					# check we don't have it
+			label = generate_label(set_labels)  	# generate unique label
+			wallet = Wallet(key, label)  			# create wallet
+			return wallet							# return it
+
+
+def generate_wallets(web3, set_labels, set_keys, number) -> list:
 	"""Generates wallets and return list with wallets
 	:return: list with Wallets
 	"""
 	new_generated_wallets = list()
 	print(f"Started the generation {number} wallets. Created: ", end="")
-	for i in range(number):												# Do N times
-		is_created = False
-		while not is_created:											# while is_created = False
-			key = web3.toHex(web3.eth.account.create().key)		# get private key
-			if key not in set_with_private_keys:				# check we don't have it
-				label = generate_label(set_with_labels)			# generate unique label
-				wallet = Wallet(key, label)						# create wallet
-				update_wallet(web3=web3, wallet=wallet)			# update it
-				new_generated_wallets.append(wallet)			# add it
-				is_created = True										# is_created = True
+	for i in range(number):
+		wallet = generate_wallet(web3, set_labels, set_keys)			# get wallet
+		update_wallet(web3=web3, wallet=wallet)  						# update it
+		new_generated_wallets.append(wallet)							# add to the list
 
 		print(i+1, end="")			# just "progress bar", will write number of created acc
 		if i+1 < number:			# and if it's not the last one
@@ -141,3 +145,30 @@ def generate_wallets(web3, set_with_labels, set_with_private_keys, number) -> li
 		print()						# end of the "progress bar", xD
 
 		return new_generated_wallets
+
+
+def get_wallet_index_by_text(wallets_list, set_addr, text) -> int:
+	"""
+	Gives index of the wallet in list by text.
+
+	:param wallets_list: list with wallets
+	:param set_addr: set with addresses
+	:param text: address or number of the wallet
+	:return: Index of selected Wallet in the list
+	"""
+	total_wallets = len(wallets_list)
+
+	if text.isnumeric():  # get number if it's number
+		number = int(text)
+		if number == 0 or number > total_wallets:		# if 0 or > wallets in list
+			raise IndexError("Wrong number")  			# throw IndexError
+		return number - 1  								# if not - return Index
+	elif not text.startswith("0x") or len(text) != settings.address_length:
+		raise Exception(text.error_not_number_or_address)
+	else:
+		if text not in set_addr:  # if there's no such wallet
+			raise Exception(text.error_no_such_address)  # throw error
+		else:
+			for index in range(total_wallets):  # else find its Index
+				if wallets_list[index].addr == text:
+					return index  # end return
