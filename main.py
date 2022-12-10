@@ -22,7 +22,7 @@ def main():
             case "4":
                 m.try_delete_wallet()
             case "5":
-                print(f"Connection status: {m.web3.isConnected()}")
+                m.connection_status()
             case "6":
                 m.update_wallets()
             case "7":
@@ -40,7 +40,7 @@ def main():
                 А транзы - в свой файл. 
                 
                 """
-                pass
+                m.try_send_transaction()
             case "9":   # ??
                 pass
             case "t":

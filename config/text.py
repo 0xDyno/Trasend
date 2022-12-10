@@ -14,7 +14,7 @@ main_text_instruction = """Print number:
 5. Check connection
 6. Update wallets
 7. Last Block Info
-8. ---- Send transaction (not implemented)
+8. Send transaction
 9. ----
 -------
 t - for tests
@@ -56,5 +56,6 @@ error_no_such_address = "The address you wrote doesn't exist in the system"
 error_not_number_or_address = "Error, not number or address"
 error_block_doesnt_exist_yet = "The block doesn't exist in the blockchain yet"
 error_no_info_about_last_block = "No info about the last block"
+error_something_wrong = "Something wrong, mistake: {}\nTry again.\n\n"
 success = "success"
 fail = "fail"

@@ -1,7 +1,7 @@
 # Import my files
 from config import text, settings
 from wallet import Wallet
-import assist
+import assist, trans
 
 # Import third-party files
 from web3 import Web3
@@ -9,6 +9,18 @@ from threading import *
 from time import sleep
 from cryptography.fernet import Fernet
 import pickle
+
+
+def start_daemon_to(func, *args):
+	"""
+	Start a daemon for tasks
+	:param func: method to do
+	:param args: what func accepts
+	:return: daemon
+	"""
+	thread = Thread(target=func, args=args)
+	thread.start()
+	return thread
 
 
 class Manager:
@@ -42,6 +54,7 @@ class Manager:
 	def new_connection(self, connection):
 		assist.is_web3(connection)
 		self.web3 = connection
+		self.chainId = self.web3.eth.chain_id
 
 	def __new__(cls, *args, **kwargs):
 		if cls.__singleton is None:
@@ -62,9 +75,10 @@ class Manager:
 		if self.web3 is None:
 			assist.is_web3(connection)
 			self.web3 = connection
+			self.chainId = self.web3.eth.chain_id
 
 			# Get status of the connection
-			print(f"Connection status: {self.web3.isConnected()}")
+			self.connection_status()
 
 			# Loading addresses
 			self.__singleton.load_list_with_wallets()
@@ -77,8 +91,7 @@ class Manager:
 				self.__singleton.initialize_sets()
 
 			# Start a demon to regularly update info (last block)
-			self.daemon_to_update_last_block = None
-			self.start_daemon_to_update_last_block()
+			self.daemon_to_update_last_block = start_daemon_to(self.daemon_update_last_block)
 		else:
 			print(f"Connection status: {self.web3.isConnected()}")
 
@@ -97,18 +110,20 @@ class Manager:
 			self.add_to_sets(wallet)
 		print(text.success)
 
-	def start_daemon_to_update_last_block(self):
-		# Update the last block forever every N seconds
-		def work_for_daemon():
-			while not self.is_main_finished:
+	def daemon_update_last_block(self):
+		step = 2
+		count = settings.update_block_every * step
+		while not self.is_main_finished:
+			if count < settings.update_block_every:
+				if settings.print_daemons_info:
+					print("Daemon: Checked program")
+				sleep(1 / step)
+				count += 1
+			else:
 				self.update_last_block()
 				if settings.print_daemons_info:
 					print("Daemon, updated the last block, current block is", self.last_block["number"])
-				sleep(settings.ETH_block_time)
-
-		# create a Daemon to do work in work_for_daemon()
-		self.daemon_to_update_last_block = Thread(target=work_for_daemon)
-		self.daemon_to_update_last_block.start()
+				count = 0
 
 ###################################################################################################
 # Save-Load #######################################################################################
@@ -186,7 +201,7 @@ class Manager:
 		"""Checking one by one has the same speed as using a batch.
 		Now I implement import one by one. Later I can add import batch of private keys.
 		"""
-		while True:
+		while not self.is_main_finished:
 			try:
 				print(text.add_input_private_key)
 				key = input().strip().lower()
@@ -212,13 +227,13 @@ class Manager:
 					print(f"Successfully added the wallet: {wallet.get_all_info()}")
 			except Exception as e:
 				# raise Exception(e)
-				print(f"Something wrong, mistake: {e}\nTry again.")
+				print(text.error_something_wrong.format(e))
 
 	def try_delete_wallet(self):
 		""" Realisation of deleting wallets -> certain wallet, last, last N or all
 		If change - be careful with .lower method !!
 		"""
-		while True:
+		while not self.is_main_finished:
 			try:
 				if not self.wallets_list:						# If no wallets
 					print(text.del_no_wallets)					# tell about it
@@ -234,7 +249,7 @@ class Manager:
 
 				# Processing the input
 				process_line = line.lower()
-				if process_line == "all":				# if all
+				if process_line == "all":
 					self.wallets_list.clear()
 					self.set_addr.clear()
 					self.set_labels.clear()
@@ -248,14 +263,42 @@ class Manager:
 					for i in range(how_many_delete):					# do N times
 						last_index = len(self.wallets_list) - 1			# - get last index
 						self.delete_wallet(last_index)					# - delete it
-				else:											# else get wallet index
-					index = assist.get_wallet_index_by_text(self.wallets_list.copy(),
-															self.set_addr.copy(),
-															line)
-					self.delete_wallet(index)					# delete it
+				else:
+					index = self.get_wallet_index_by_text(line)		# else get wallet index
+					self.delete_wallet(index)						# delete it
 			except Exception as e:
 				print(e)
-				print("Something went wrong:", e, end="\n\n")
+				print(text.error_something_wrong.format(e))
+
+	def try_send_transaction(self):
+		try:
+			if not self.wallets_list: 	 	# If no wallets
+				print(text.del_no_wallets)  # tell about it
+				return  					# and return
+
+			print("All wallets: ")  					# instruction
+			assist.print_wallets(self.wallets_list)  	# print wallets
+			print("---------------------")  			# and line
+
+			print("From which send:")
+			sender = self.get_wallet_by_text(input())
+
+			daemon = start_daemon_to(assist.update_wallet, self.web3, sender)
+
+			print("To which send:")
+			receiver = self.get_wallet_by_text(input())
+
+			print("Write amount:")
+			amount = float(input())
+
+			if daemon.is_alive():
+				daemon.join()
+
+			tx_hash = trans.send_transactions(self.web3, sender, receiver, amount)
+			print("tx_hash is", tx_hash)
+
+		except Exception as e:
+			print(text.error_something_wrong.format(e))
 
 	def generate_wallets(self, number=1):
 		if number > 100 or number < 1:
@@ -279,9 +322,9 @@ class Manager:
 		"""Adds new wallet to sets if there's no such wallet.
 		If there's same data - throws Exception"""
 		# if any field in the set - throw error. Else - add new wallet
-		if wallet.key() in self.set_keys or \
-			wallet.label in self.set_labels or \
-			wallet.addr in self.set_addr:
+		if wallet.key() in self.set_keys \
+			or wallet.label in self.set_labels \
+			or wallet.addr in self.set_addr:
 
 			raise Exception(text.error_add_to_set)
 		else:
@@ -291,9 +334,9 @@ class Manager:
 
 	def delete_from_sets(self, wallet):
 		""" Deletes wallet from the sets if every field is in sets. Otherwise, throws Exception """
-		if wallet.key() in self.set_keys and \
-			wallet.label in self.set_labels and \
-			wallet.addr in self.set_addr:
+		if wallet.key() in self.set_keys \
+			and wallet.label in self.set_labels \
+			and wallet.addr in self.set_addr:
 
 			self.set_keys.remove(wallet.key())
 			self.set_labels.remove(wallet.label)
@@ -366,11 +409,25 @@ class Manager:
 # Assist methods ##################################################################################
 ###################################################################################################
 
+	def print_wallets(self):
+		assist.print_wallets(self.wallets_list.copy())
+
+	def get_wallet_by_text(self, text_):
+		index = self.get_wallet_index_by_text(text_)
+		return self.wallets_list[index]
+
+	def get_wallet_index_by_text(self, text_):
+		return assist.get_wallet_index_by_text(self.wallets_list.copy(), self.set_addr.copy(), text_)
+
 	def update_last_block(self):
 		self.last_block = self.web3.eth.get_block("latest")
 
-	def print_wallets(self):
-		assist.print_wallets(self.wallets_list.copy())
+	def connection_status(self):
+		if self.web3.isConnected():
+			is_connected = "Success"
+		else:
+			is_connected = "Fail"
+		print("Connection:", is_connected)
 
 ###################################################################################################
 # Finish ##########################################################################################

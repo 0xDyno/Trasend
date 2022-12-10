@@ -2,7 +2,6 @@ from eth_account import Account
 
 from config import settings, text
 from wallet import Wallet
-
 from random import random
 from web3 import Web3
 from datetime import date

@@ -4,6 +4,8 @@ class Wallet:
     addr = str()
     balance_in_wei = int()
     txs = list()                # list with Transaction objects
+    chainId = int()
+    time = float()              # -- time()
 
 
 
