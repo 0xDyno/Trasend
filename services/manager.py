@@ -1,26 +1,14 @@
 # Import my files
+import time
+
 from config import text, settings
-from wallet import Wallet
-import assist, trans
+from services.classes import Wallet
+from services import assist, trans, threads
 
 # Import third-party files
 from web3 import Web3
-from threading import *
-from time import sleep
 from cryptography.fernet import Fernet
 import pickle
-
-
-def start_daemon_to(func, *args):
-	"""
-	Start a daemon for tasks
-	:param func: method to do
-	:param args: what func accepts
-	:return: daemon
-	"""
-	thread = Thread(target=func, args=args)
-	thread.start()
-	return thread
 
 
 class Manager:
@@ -30,28 +18,13 @@ class Manager:
 	All operations that related to transaction located in trans.py
 	"""
 
-###################################################################################################
-# Params ##########################################################################################
-###################################################################################################
-
 	__singleton = None
-	web3: Web3 = None
-	wallets_list = list()
-
-	# added from wallets_list when __init__
-	set_keys = set()
-	set_labels = set()
-	set_addr = set()
-
-	# other params
-	last_block = None			# updates every N secs by daemon
-	is_main_finished = False	# flag for daemons
-
+	all_txs = set()
 ###################################################################################################
-# Initialization / Save-Load ######################################################################
+# Initialization ##################################################################################
 ###################################################################################################
 
-	def new_connection(self, connection):
+	def new_connection(self, connection: Web3):
 		assist.is_web3(connection)
 		self.web3 = connection
 		self.chainId = self.web3.eth.chain_id
@@ -59,47 +32,66 @@ class Manager:
 	def __new__(cls, *args, **kwargs):
 		if cls.__singleton is None:
 			cls.__singleton = super().__new__(cls)
+			cls.__singleton.is_initialized = False
 
 		return cls.__singleton
 
 	def __del__(self):
-		self.is_main_finished = True
 		Manager.__singleton = None
 
 	def __init__(self, connection):
 		"""
-		 If object creates first time - it will ask for Web3 object
-		 If second time - it will use connection from 1st time
-		 To change connection - use obj.new_connection(new_Web3)
+		 If object creates first time - it will init everything
+		 If second time - it will use data from 1st time
 		"""
-		if self.web3 is None:
-			assist.is_web3(connection)
-			self.web3 = connection
+		if not self.is_initialized:
+			self.is_initialized = True
+
+			# Main params:
+			self.web3 = assist.is_web3(connection)
 			self.chainId = self.web3.eth.chain_id
+
+			self.wallets_list = list()
+			self.set_keys = set()
+			self.set_labels = set()
+			self.set_addr = set()
+
+			# Other params
+			self.last_block = None  		# updates every N secs by daemon
 
 			# Get status of the connection
 			self.connection_status()
 
 			# Loading addresses
-			self.__singleton.load_list_with_wallets()
+			self.load_list_with_wallets()
 
 			# Init sets if there are wallets
-			if not self.__singleton.wallets_list:
+			if not self.wallets_list:
 				print(text.new_text_no_wallets_to_init)
 			else:
-				self.__singleton.update_wallets()
-				self.__singleton.initialize_sets()
+				self.update_wallets()
+				self.initialize_sets()
+				assist.init_all_txs(self.wallets_list.copy())
 
 			# Start a demon to regularly update info (last block)
-			self.daemon_to_update_last_block = start_daemon_to(self.daemon_update_last_block)
+			self.daemon_to_update_last_block = threads.start_todo(self.daemon_update_last_block, True)
 		else:
 			print(f"Connection status: {self.web3.isConnected()}")
 
 	def update_wallets(self):
 		if self.wallets_list:
 			print(text.upd_text_updating_wallets, end=" ")
-			for wallet in self.wallets_list:
-				assist.update_wallet(self.web3, wallet)
+
+			list_daemons = list()
+
+			for wallet in self.wallets_list:									# for each wallet
+				if threads.can_create_daemon():
+					thread = threads.start_todo(self.update_wallet, True, wallet)	# start new thread
+					list_daemons.append(thread)								# add thread to the list
+				else:
+					time.sleep(settings.wait_to_create_daemon_again)
+
+			[daemon.join() for daemon in list_daemons if daemon.is_alive()]
 			print(text.success)
 		else:
 			print(text.upd_text_no_wallets_to_update)
@@ -111,19 +103,14 @@ class Manager:
 		print(text.success)
 
 	def daemon_update_last_block(self):
-		step = 2
-		count = settings.update_block_every * step
-		while not self.is_main_finished:
-			if count < settings.update_block_every:
-				if settings.print_daemons_info:
-					print("Daemon: Checked program")
-				sleep(1 / step)
-				count += 1
-			else:
-				self.update_last_block()
-				if settings.print_daemons_info:
-					print("Daemon, updated the last block, current block is", self.last_block["number"])
-				count = 0
+		"""
+		The daemon updates block even N time (wrote in settings.update_block_every)
+		But it checks the program every 0.5 sec
+		"""
+		while True:
+			self.update_last_block()				# update
+			if settings.print_daemons_info:
+				print("Daemon, updated the last block, current block is", self.last_block["number"])
 
 ###################################################################################################
 # Save-Load #######################################################################################
@@ -173,14 +160,14 @@ class Manager:
 			raise TypeError("I can add only wallet and that's not wallet. Tell the devs")
 		else:
 			if not wallet.addr:								# if no addr
-				assist.update_wallet(self.web3, wallet)		# get it
+				self.update_wallet(wallet)		# get it
 
 			self.wallets_list.append(wallet)				# add to the list
 			self.add_to_sets(wallet)						# add to the sets
 
 	def delete_wallet(self, index):
 		"""
-		Deletes wallet from list and sets by its Index in the list or Wallet obj.
+		Deletes wallet from list and sets by its Index in the list or Wallet obj
 		:param index: wallet Index in the list OR wallet Obj in the list
 		"""
 		if isinstance(index, Wallet):						# if it's wallet - get it's index
@@ -201,7 +188,7 @@ class Manager:
 		"""Checking one by one has the same speed as using a batch.
 		Now I implement import one by one. Later I can add import batch of private keys.
 		"""
-		while not self.is_main_finished:
+		while True:
 			try:
 				print(text.add_input_private_key)
 				key = input().strip().lower()
@@ -219,12 +206,12 @@ class Manager:
 							break  							# stop and write it
 					print(f"Error, the key is already added to the system with the label: \"{label}\"")
 				else:  	# If OK - add the wallet
-					label = assist.ask_label(self.set_labels)  	# ask label
-					wallet = Wallet(key, label)  				# create Wallet
-					assist.update_wallet(self.web3, wallet)  	# update info
+					label = self.ask_label()  			# ask label
+					wallet = Wallet(key, label)  		# create Wallet
+					self.update_wallet(wallet)  		# update info
 
 					self.add_wallet(wallet)					# add wallet
-					print(f"Successfully added the wallet: {wallet.get_all_info()}")
+					print(f"Successfully added the wallet: {wallet.get_info()}")
 			except Exception as e:
 				# raise Exception(e)
 				print(text.error_something_wrong.format(e))
@@ -233,7 +220,7 @@ class Manager:
 		""" Realisation of deleting wallets -> certain wallet, last, last N or all
 		If change - be careful with .lower method !!
 		"""
-		while not self.is_main_finished:
+		while True:
 			try:
 				if not self.wallets_list:						# If no wallets
 					print(text.del_no_wallets)					# tell about it
@@ -260,7 +247,7 @@ class Manager:
 					else:
 						how_many_delete = int(line.split(" ")[1])		# otherwise parse how many
 
-					for i in range(how_many_delete):					# do N times
+					for _ in range(how_many_delete):					# do N times
 						last_index = len(self.wallets_list) - 1			# - get last index
 						self.delete_wallet(last_index)					# - delete it
 				else:
@@ -273,7 +260,7 @@ class Manager:
 	def try_send_transaction(self):
 		try:
 			if not self.wallets_list: 	 	# If no wallets
-				print(text.del_no_wallets)  # tell about it
+				print(text.text_no_wallets)  # tell about it
 				return  					# and return
 
 			print("All wallets: ")  					# instruction
@@ -283,19 +270,20 @@ class Manager:
 			print("From which send:")
 			sender = self.get_wallet_by_text(input())
 
-			daemon = start_daemon_to(assist.update_wallet, self.web3, sender)
-
+			daemon = threads.start_todo(self.update_wallet, True, sender)
 			print("To which send:")
 			receiver = self.get_wallet_by_text(input())
 
 			print("Write amount:")
-			amount = float(input())
+			amount = self.web3.toWei(input(), "ether")
 
 			if daemon.is_alive():
 				daemon.join()
 
-			tx_hash = trans.send_transactions(self.web3, sender, receiver, amount)
-			print("tx_hash is", tx_hash)
+			txs_list: list = trans.transaction_sender(self.web3, sender, receiver, amount)
+
+			[Manager.all_txs.add(tx) for tx in txs_list if tx not in Manager.all_txs]			# add tx
+			[print(tx) for tx in txs_list]														# print
 
 		except Exception as e:
 			print(text.error_something_wrong.format(e))
@@ -310,13 +298,11 @@ class Manager:
 															self.set_keys.copy(),
 															number)
 			# add it to our list
-			for wallet in new_generated_wallets:
-				self.add_wallet(wallet)
+			[self.add_wallet(wallet) for wallet in new_generated_wallets]
 
-			# print generated wallets info
-			print("Generated wallets:")
-			for wallet in new_generated_wallets:
-				print(wallet.addr, wallet.key())
+			print("Generated wallets:")				# print generated wallets info
+			[print(wallet.addr, wallet.key()) for wallet in new_generated_wallets]
+
 
 	def add_to_sets(self, wallet):
 		"""Adds new wallet to sets if there's no such wallet.
@@ -412,12 +398,24 @@ class Manager:
 	def print_wallets(self):
 		assist.print_wallets(self.wallets_list.copy())
 
+	def print_all_info(self):
+		assist.print_all_info(self.wallets_list.copy())
+
+	def print_all_txs(self):
+		assist.print_all_txs(self.web3)
+
+	def update_wallet(self, wallet):
+		assist.update_wallet(self.web3, wallet)
+
 	def get_wallet_by_text(self, text_):
 		index = self.get_wallet_index_by_text(text_)
 		return self.wallets_list[index]
 
 	def get_wallet_index_by_text(self, text_):
 		return assist.get_wallet_index_by_text(self.wallets_list.copy(), self.set_addr.copy(), text_)
+
+	def ask_label(self):
+		return assist.ask_label(self.set_labels.copy())
 
 	def update_last_block(self):
 		self.last_block = self.web3.eth.get_block("latest")
@@ -435,6 +433,3 @@ class Manager:
 
 	def finish_work(self):
 		self.save_wallets_list()
-
-		# Finish the demon
-		self.is_main_finished = True

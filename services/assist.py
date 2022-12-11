@@ -1,11 +1,14 @@
+import time
 from eth_account import Account
 
+import services.manager
 from config import settings, text
-from wallet import Wallet
 from random import random
 from web3 import Web3
 from datetime import date
 from cryptography.fernet import Fernet
+from services.classes import Wallet
+from services import threads, trans
 import os
 
 
@@ -29,11 +32,12 @@ def is_number(e: str) -> bool:
 
 def is_web3(connection):
 	"""
-	Checks the connection is Web3
+	Checks and return the connection if it's Web3. Otherwise, throws an error
 	"""
 	if not isinstance(connection, Web3):
 		raise TypeError("Can't create Manager because got wrong Connection type. "
 						f"Should be {Web3} object, got: {connection}")
+	return connection
 
 
 def check_save_load_files():
@@ -85,8 +89,27 @@ def print_wallets(list_with_wallets):
 		print(text.text_no_wallets)
 	else:
 		length = len(list_with_wallets)
-		for i in range(length):  										# print all addresses
-			print(f"{i + 1}. {list_with_wallets[i].get_all_info()}")  	# with its index
+		for i in range(length):  									# print all addresses
+			print(f"{i + 1}. {list_with_wallets[i].get_info()}")  	# with its index
+
+
+def print_all_info(list_with_wallets):
+	if not list_with_wallets:
+		print(text.text_no_wallets)
+	else:
+		length = len(list_with_wallets)
+		for i in range(length):
+			print(f"{i + 1}. {list_with_wallets[i].get_all_info()}")  # with its index
+
+
+def print_all_txs(web3: Web3):
+	if not services.manager.Manager.all_txs:
+		print(text.text_no_tx)
+
+	chainId = web3.eth.chain_id
+	for tx in services.manager.Manager.all_txs:
+		if chainId == tx.chainId:
+			print(tx)
 
 
 def generate_label(set_with_labels):
@@ -124,43 +147,53 @@ def update_wallet(web3, wallet):
 			wallet.addr = Account.privateKeyToAccount(key).address  	# parse the address and add
 
 		wallet.balance_in_wei = web3.eth.get_balance(wallet.addr)  		# update balance
-		wallet.nonce = web3.eth.get_transaction_count(wallet.addr)  		# update nonce
+		wallet.nonce = web3.eth.get_transaction_count(wallet.addr)  	# update nonce
+		# update Tx if needed (status is None)
+		[trans.update_tx(web3, tx) for tx in wallet.txs if tx.status is None]
 	else:
 		print(text.upd_error_not_wallet)
 
 
-def generate_wallet(web3, set_labels, set_keys) -> Wallet:
-	"""Generates unique 1 wallet (key + label) and return it"""
-	while True:
-		key = web3.toHex(web3.eth.account.create().key)  	# get private key
-		if key not in set_keys:  					# check we don't have it
-			label = generate_label(set_labels)  	# generate unique label
-			wallet = Wallet(key, label)  			# create wallet
-			return wallet							# return it
+def generate_wallet(web3, set_labels, set_keys, result_list):
+	"""Generates unique 1 wallet (key + label). Updates it and add to the list
+	"""
+	key = web3.toHex(web3.eth.account.create().key)  	# get private key
+	if key not in set_keys:  					# check we don't have it
+		label = generate_label(set_labels)  	# generate unique label
+		wallet = Wallet(key, label)  			# create wallet
+		update_wallet(web3, wallet)				# update it
+
+		result_list.append(wallet)				# save it
+
+		print(".", end="")  # just "progress bar"
+	else:
+		generate_wallet(web3, set_labels, set_keys, result_list)
 
 
 def generate_wallets(web3, set_labels, set_keys, number) -> list:
-	"""Generates wallets and return list with wallets
-	:return: list with Wallets
+	"""Generates wallets and returns list with updates wallets
+	:return: list with updated Wallets
 	"""
 	new_generated_wallets = list()
-	print(f"Started the generation {number} wallets. Created: ", end="")
-	for i in range(number):
-		wallet = generate_wallet(web3, set_labels, set_keys)			# get wallet
-		update_wallet(web3=web3, wallet=wallet)  						# update it
-		new_generated_wallets.append(wallet)							# add to the list
+	list_daemons = list()
+	print(f"Started the generation {number} wallets. Progress bar: ", end="")
 
-		print(i+1, end="")			# just "progress bar", will write number of created acc
-		if i+1 < number:			# and if it's not the last one
-			print("..", end="")		# add ... between them
-	print()							# end of the "progress bar", xD
+	for _ in range(number):
+		if threads.can_create_daemon():
+			daemon = threads.start_todo(generate_wallet, False,
+						web3, set_labels, set_keys, new_generated_wallets)
+			list_daemons.append(daemon)
+		else:
+			time.sleep(settings.wait_to_create_daemon_again)
+
+	[daemon.join() for daemon in list_daemons if daemon.is_alive()]
+	print(" Finished")
 	return new_generated_wallets
 
 
 def get_wallet_index_by_text(wallets_list: list, set_addr: set, string) -> int:
 	"""
-	Gives index of the wallet in list by text.
-
+	Gives index of the wallet in list by text
 	:param wallets_list: list with wallets
 	:param set_addr: set with addresses
 	:param string: address or number of the wallet
@@ -182,3 +215,27 @@ def get_wallet_index_by_text(wallets_list: list, set_addr: set, string) -> int:
 			for index in range(total_wallets):  # else find its Index
 				if wallets_list[index].addr == string:
 					return index  # end return
+
+
+def delete_txs_history():
+	if not services.manager.Manager.all_txs:
+		print(text.text_no_tx)
+	else:
+		for tx in services.manager.Manager.all_txs:  # and them delete everything.
+			tx.delete()
+			del tx
+
+		services.manager.Manager.all_txs.clear()
+		print(text.success)
+
+
+def init_all_txs(wallets_list):
+	unique_txs = services.manager.Manager.all_txs
+
+	for wallet in wallets_list: 	# for ear wallet
+		if not wallet.txs:  		# check do they have txs
+			continue  				# if no - next wallet
+		else:
+			for tx in wallet.txs:  			# if yes - for each tx in txs
+				if tx not in unique_txs:  	# if we don't have in our unique list
+					unique_txs.add(tx)  	# add

@@ -7,18 +7,23 @@ File With Texts
 
 """For Main"""			#################################################
 main_text_instruction = """Print number:
-1. Show all wallets
-2. Add wallets
-3. Generate wallets
-4. Delete wallets
-5. Check connection
-6. Update wallets
-7. Last Block Info
-8. Send transaction
-9. ----
--------
-t - for tests
-\"exit\" or \"e\" to finish"""
+Print:
+	1 		Show all wallets
+	1+ 		Show all wallets + transactions
+	1t		Show all transactions
+Add wallets
+	2		Add
+	2+ 		Generate wallets
+Delete wallets
+	3		Delete wallets (delete last & all here not)
+	3l 		Delete last 		(use 3 for now)
+	3a		Delete all			(use 3 for now)
+	3t		Delete TXs history
+4. Send transaction (main coin)
+	4e 		Send ERC-20 		(not imp)
+	4all	Send to All wallets (not imp)
+Other functions:
+upd - update wallets | 01 - last block info | 02 - check connection | t - tests | e - exit"""
 
 # Import an acc, add_wallet() method:
 add_input_private_key = "Write your private key:"
@@ -46,8 +51,13 @@ upd_text_updating_wallets = "Working: updating the wallets info..."
 upd_text_no_wallets_to_update = "No wallets to update"
 upd_error_not_wallet = "Not a wallet, can't update, tell the devs >> update_wallet"
 
+# Send TXs, TXs
+tx_received = "Received"
+tx_sent = "Sent"
+
 # Other
 text_no_wallets = "No wallets"
+text_no_tx = "No TXs"
 text_enter_wallet_or_number = "Enter wallet address or it's number:"
 error_add_to_set = "Error in \"add_to_set\" method, the key or label already exist in the set"
 error_delete_from_set = "Error in \"delete_from_set\" method, there's no such key or label in the set"
