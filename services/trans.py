@@ -110,10 +110,10 @@ def send_native_coin(web3: Web3, tx: dict, key) -> str or None:
 	"""
 
 	pr("send_native_coin: try to send a transaction")
-	signed_tx = web3.eth.account.sign_transaction(tx, key)
-	tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+	signed_tx = web3.eth.account.sign_transaction(tx, key)				# sing
+	tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)	# send
 	pr("send_native_coin: successfully sent the transaction")
-	return web3.toHex(tx_hash)
+	return web3.toHex(tx_hash)											# return TX
 
 
 def add_transactions_to_wallets(web3: Web3, sender: Wallet, receivers_list: list,
@@ -127,24 +127,24 @@ def add_transactions_to_wallets(web3: Web3, sender: Wallet, receivers_list: list
 	for tx_text in raw_txs_list:				# for each transaction
 		for receiver in receivers_list:			# and for each receiver
 			tx = Transaction(web3.eth.chain_id, time.time(), receiver, sender, value, tx_text)
-			txs_list.append(tx)
-
+			txs_list.append(tx)					# create tx and add it
+												# then start a daemon to update them all
 	threads.start_todo(update_txs, True, web3, txs_list)
 	return txs_list
 
 
 def update_txs(web3: Web3, txs_list: list):
-	for tx in txs_list:
-		if threads.can_create_daemon():
-			threads.start_todo(update_tx, True, web3, tx)
+	for tx in txs_list:											# for all txs
+		if threads.can_create_daemon():							# if we can create daemon
+			threads.start_todo(update_tx, True, web3, tx)		# create to do update_tx()
 		else:
-			time.sleep(settings.wait_to_create_daemon_again)
+			time.sleep(settings.wait_to_create_daemon_again)	# or wait
 
 
 def update_tx(web3: Web3, tx: Transaction):
-	if tx.status is None:
-		receipt = web3.eth.waitForTransactionReceipt(tx.tx)
-		if receipt["status"] == 0:
+	if tx.status is None:										# if no status
+		receipt = web3.eth.waitForTransactionReceipt(tx.tx)		# wait for the result
+		if receipt["status"] == 0:								# and change it
 			tx.status = "Fail"
 		else:
 			tx.status = "Success"

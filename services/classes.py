@@ -27,8 +27,8 @@ class Wallet:
         return format_ % (self.label, self.addr, self.get_eth_balance())
 
     def get_all_info(self):
-        line = self.get_info()
-        if self.txs:
+        line = self.get_info()          # all info
+        if self.txs:                    # + all transactions if there are
             line += "\nTransactions:"
             for tx in self.txs:
                 line += "\n\t" + self.get_transaction_info(tx)
@@ -51,11 +51,11 @@ class Wallet:
         tx_type = tx.get_tx_type(self)      # get type Received or Sent
         tx_time = tx.get_time()             # get date
 
-        if tx_type == text.tx_received:
+        if tx_type == text.tx_received:     # self - is receiver or sender?
             sender_or_receiver = "from " + tx.sent_from.addr
         else:
             sender_or_receiver = "to " + tx.sent_to.addr
-        link = chain_explorers[tx.chainId] + tx.tx
+        link = chain_explorers[tx.chainId] + tx.tx      # get explorer + tx = link
         blockchain = chain_default_token[tx.chainId]
 
         format_ = "{blockchain} >> {tx_type} {value} {token} {sender_or_receiver} on {date}\n\t\t{status} >>> {link}"
@@ -78,14 +78,14 @@ class Transaction:
         :param tx: tx_hash text
         :param token: Ticker of smart-contract, None if default network (ETH, BNB, MATIC etc)
         """
-        self.chainId = chainId                          # _1
-        self.date = datetime.fromtimestamp(time)        # _2 -- datetime
-        self.status = None                              # _3 -- Success / Fail / None
-        self.sent_to = sent_to                          # _4 to
-        self.sent_from = sent_from                      # _5 from
-        self.value = value                              # _6 value
-        self.which_token = bool                         # _7 Main token or TokenTicket
-        self.tx = tx                                    # _8 transaction hash
+        self.chainId = chainId                          #_1
+        self.date = datetime.fromtimestamp(time)        #_2 -- datetime
+        self.status = None                              #_3 -- Success / Fail / None
+        self.sent_to = sent_to                          #_4 to
+        self.sent_from = sent_from                      #_5 from
+        self.value = value                              #_6 value
+        self.which_token = bool                         #_7 Main token or TokenTicket
+        self.tx = tx                                    #_8 transaction hash
         if token is None:
             self.which_token = chain_default_token[chainId]
         else:
@@ -108,16 +108,17 @@ class Transaction:
                            date=self.get_time(),
                            status=self.status) + link
 
-    def __eq__(self, other):
+    def __eq__(self, other):            # required for deserialization
         return self.tx == other.tx
 
-    def __hash__(self):
+    def __hash__(self):                 # required for deserialization
         return hash(self.tx)
 
     def get_eth_value(self):
         return Web3.fromWei(self.value, "ether")
 
     def get_tx_type(self, wallet: Wallet):
+        """Returns the wallet is sender or receiver"""
         if self.sent_to.addr == wallet.addr:
             return text.tx_received
         else:
@@ -130,6 +131,7 @@ class Transaction:
         webbrowser.open(chain_explorers[self.chainId] + self.tx)
 
     def delete(self):
+        """For deleting tx -> delete sender & receiver, then .self is deleted"""
         if self in self.sent_to.txs:
             index = self.sent_to.txs.index(self)
             self.sent_to.txs.pop(index)

@@ -85,40 +85,31 @@ def get_fernet_key():
 
 
 def print_wallets(list_with_wallets):
-	if not list_with_wallets:
-		print(text.text_no_wallets)
-	else:
-		length = len(list_with_wallets)
-		for i in range(length):  									# print all addresses
-			print(f"{i + 1}. {list_with_wallets[i].get_info()}")  	# with its index
+	length = len(list_with_wallets)
+	for i in range(length):  									# print all addresses
+		print(f"{i + 1}. {list_with_wallets[i].get_info()}")  	# with its index
 
 
 def print_all_info(list_with_wallets):
-	if not list_with_wallets:
-		print(text.text_no_wallets)
-	else:
-		length = len(list_with_wallets)
-		for i in range(length):
-			print(f"{i + 1}. {list_with_wallets[i].get_all_info()}")  # with its index
+	length = len(list_with_wallets)
+	for i in range(length):											# prints info with TXs
+		print(f"{i + 1}. {list_with_wallets[i].get_all_info()}")  	# and its index
 
 
 def print_all_txs(web3: Web3):
-	if not services.manager.Manager.all_txs:
-		print(text.text_no_tx)
-
 	chainId = web3.eth.chain_id
-	for tx in services.manager.Manager.all_txs:
-		if chainId == tx.chainId:
+	for tx in services.manager.Manager.all_txs:		# prints all TXs
+		if chainId == tx.chainId:					# with current network
 			print(tx)
 
 
 def generate_label(set_with_labels):
 	while True:
-		number = int(random() * 10**5)
-		if number >= 10000:
+		number = int(random() * 10**5)			# generate number
+		if number >= 10000:						# if it's >= 10000
 			label = str(number)
-			if label not in set_with_labels:
-				return label
+			if label not in set_with_labels:	# check it's unique
+				return label					# return
 
 
 def ask_label(set_with_labels):
@@ -148,6 +139,7 @@ def update_wallet(web3, wallet):
 
 		wallet.balance_in_wei = web3.eth.get_balance(wallet.addr)  		# update balance
 		wallet.nonce = web3.eth.get_transaction_count(wallet.addr)  	# update nonce
+
 		# update Tx if needed (status is None)
 		[trans.update_tx(web3, tx) for tx in wallet.txs if tx.status is None]
 	else:
@@ -166,8 +158,8 @@ def generate_wallet(web3, set_labels, set_keys, result_list):
 		result_list.append(wallet)				# save it
 
 		print(".", end="")  # just "progress bar"
-	else:
-		generate_wallet(web3, set_labels, set_keys, result_list)
+	else:										# If we have that key - try again... tho I doubt it
+		generate_wallet(web3, set_labels, set_keys, result_list)	# just in case...
 
 
 def generate_wallets(web3, set_labels, set_keys, number) -> list:
@@ -178,22 +170,21 @@ def generate_wallets(web3, set_labels, set_keys, number) -> list:
 	list_daemons = list()
 	print(f"Started the generation {number} wallets. Progress bar: ", end="")
 
-	for _ in range(number):
-		if threads.can_create_daemon():
-			daemon = threads.start_todo(generate_wallet, False,
-						web3, set_labels, set_keys, new_generated_wallets)
-			list_daemons.append(daemon)
-		else:
+	for _ in range(number):					# Do N times
+		if threads.can_create_daemon():		# If we can create daemon - do it
+			daemon = threads.start_todo(generate_wallet, False,					# create daemon
+						web3, set_labels, set_keys, new_generated_wallets)		# to do generate_wallet()
+			list_daemons.append(daemon)											# add to the list
+		else:								# If we can't create - sleep and wait
 			time.sleep(settings.wait_to_create_daemon_again)
 
-	[daemon.join() for daemon in list_daemons if daemon.is_alive()]
-	print(" Finished")
-	return new_generated_wallets
+	[daemon.join() for daemon in list_daemons if daemon.is_alive()]				# wait till they finish
+	print(" Finished")															# print &
+	return new_generated_wallets												# return the list
 
 
 def get_wallet_index_by_text(wallets_list: list, set_addr: set, string) -> int:
 	"""
-	Gives index of the wallet in list by text
 	:param wallets_list: list with wallets
 	:param set_addr: set with addresses
 	:param string: address or number of the wallet
