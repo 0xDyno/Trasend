@@ -20,9 +20,11 @@ wait_to_create_daemon_again = 0.5	# If no free place to create a daemon - it wil
 
 
 """Transactions"""		#################################################
-print_trans_info = True				# prints info when does a transaction
-multiplier = 2					# to multiply gas price (paid only for used gwei, other returns)
-multiplier_priority = 1.5		# to multiply priority (will be paid full price 100%)
+print_trans_info = False		# prints info when does a transaction
+gas_multiplier = 2				# to multiply gas price (paid only for used gwei, other returns)
+priority_multiplier = 1.5		# to multiply priority (will be paid full price 100%)
+min_priority = 1				# what min_priority, in gwei
+min_gas = 1						# mit gas price, in gwei
 chain_explorers = {
 	1: "https://etherscan.io/tx/",
 	5: "https://goerli.etherscan.io/tx/"

@@ -1,5 +1,6 @@
 import time
 
+import services.manager
 from config import settings
 from services.classes import *
 from services import threads, logs, assist, manager
@@ -13,12 +14,29 @@ Use send_
 """
 
 
+def print_gas_price_info():
+	"""Prints info about current gas"""
+	if manager.Manager.gas_price is None or manager.Manager.max_priority is None:
+		print(f"No info yet, try again... now. It updates every {settings.update_gas_every} secs")
+		return
+	gas = Web3.fromWei(manager.Manager.gas_price, "gwei")
+	priority = Web3.fromWei(manager.Manager.max_priority, "gwei")
+	network_gas = float(Web3.fromWei(manager.Manager.network_gas_price, "gwei")) / settings.gas_multiplier
+	network_priority = float(Web3.fromWei(manager.Manager.network_max_priority, "gwei")) / settings.priority_multiplier
+
+	current_gas = "Current state: gas = {:.02f} gwei, priority = {} gwei (live {:.2f}, {:.2f}) | " \
+		"settings: min gas = {} <> min prior = {}".format(gas, priority, network_gas, network_priority,
+																	 settings.min_gas, settings.min_priority)
+
+	print(current_gas)
+
+
 def print_price_and_confirm(chain_id, value, receivers: list | set | tuple) -> bool:
 	"""Prints the price for the transaction and ask to confirm before sending """
 	coin = chain_default_coin[chain_id]
-	tx_number = len(receivers)							# get No of TXs will be made
-	gas_price = manager.Manager.gas_price				# get gas price (gwei, but in wei)
-	priority = manager.Manager.max_priority * settings.multiplier_priority 	# and priority
+	tx_number = len(receivers)					# get No of TXs will be made
+	gas_price = manager.Manager.gas_price		# get gas price (like gwei, but in wei | 1gwei=1000000000wei)
+	priority = manager.Manager.max_priority
 	fee = (gas_price + priority) * 21000
 
 	total_send = value * tx_number
@@ -28,8 +46,8 @@ def print_price_and_confirm(chain_id, value, receivers: list | set | tuple) -> b
 	total_fee = Web3.fromWei(total_fee, "ether")
 	total = total_fee + total_send
 	ask = f"Amount: {total_send:.3f} {coin}\n" \
-		  f"Fee: {total_fee:.3f} {coin}\n" \
-		  f"Total: {total:.3f} {coin}\n"
+		f"Fee: {total_fee:.3f} {coin}\n" \
+	  	f"Total: {total:.3f} {coin}\n"
 
 	return assist.confirm(print_before=ask)
 
@@ -77,9 +95,7 @@ def compose_native_transaction(w3: Web3, sender: Wallet, nonce, receiver: Wallet
 	Tries to send transaction with the last ETH updates. But it won't work for networks that didn't update
 	So I wrote also second variant to send transaction
 	:return: transaction hash, string
-	""" 			# no change in
-	max_gas_fee = int(manager.Manager.gas_price * settings.multiplier)		# SHOULD BE INT !!! That's wei, so Ok. And
-	max_prior_fee = int(manager.Manager.max_priority * settings.multiplier_priority)   # web3 doesn't work with float.
+	"""
 	chain_id = w3.eth.chain_id
 
 	try:  # Usual way that should work
@@ -88,8 +104,8 @@ def compose_native_transaction(w3: Web3, sender: Wallet, nonce, receiver: Wallet
 			"from": sender.addr,
 			"to": receiver.addr,
 			"gas": 21000,
-			"maxFeePerGas": max_gas_fee,
-			"maxPriorityFeePerGas": max_prior_fee,
+			"maxFeePerGas": services.manager.Manager.gas_price,
+			"maxPriorityFeePerGas": services.manager.Manager.max_priority,
 			"value": value,
 			"data": b'',
 			"nonce": nonce,
@@ -97,7 +113,7 @@ def compose_native_transaction(w3: Web3, sender: Wallet, nonce, receiver: Wallet
 			"chainId": chain_id
 		}
 		tx_hash = send_native_coin(w3, tx, sender.key())
-	except Exception as e:
+	except Exception:
 		# When something wrong (wrong network etc..) - the last try.. can work because some networks
 		# don't have ETH updates and don't support new gas type
 		logs.pr_trans("compose_transaction_and_send: Fail")
@@ -106,7 +122,7 @@ def compose_native_transaction(w3: Web3, sender: Wallet, nonce, receiver: Wallet
 			"to": receiver.addr,
 			"nonce": sender.nonce,
 			"gas": 21000,
-			"gasPrice": int(w3.eth.gas_price * settings.multiplier),
+			"gasPrice": services.manager.Manager.gas_price,
 			"value": value,
 			"chainId": chain_id
 		}

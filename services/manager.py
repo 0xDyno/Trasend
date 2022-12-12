@@ -30,6 +30,8 @@ class Manager:
 	"""
 	__singleton = None
 	all_txs = list()
+	network_gas_price = None
+	network_max_priority = None
 	gas_price = None
 	max_priority = None
 
@@ -201,10 +203,23 @@ class Manager:
 			logs.pr_daemon(f"Daemon, updated the last block, current block is {self.last_block['number']}")
 
 	def _daemon_update_gas(self):
-		"""Daemin updates gas price & max priority every N secs"""
-		while True:
-			Manager.gas_price = self.w3.eth.gas_price
-			Manager.max_priority = self.w3.eth.max_priority_fee
+		"""Daemon updates gas price & max priority every N secs. Very important info, change with care"""
+		while True:		# no change int !! That's wei, so Ok. And web3 doesn't work with float.
+			Manager.network_gas_price = int(self.w3.eth.gas_price * settings.gas_multiplier)
+			Manager.network_max_priority = int(self.w3.eth.max_priority_fee * settings.priority_multiplier)
+
+			min_gas = Web3.toWei(settings.min_gas, "gwei")				# get min gas from settings
+			if Manager.network_gas_price < min_gas:						# if gas less than min... you got
+				Manager.gas_price = min_gas
+			else:
+				Manager.gas_price = Manager.network_gas_price
+
+			min_priority = Web3.toWei(settings.min_priority, "gwei")	# get min prior from settings...
+			if Manager.network_max_priority < min_priority:
+				Manager.max_priority = min_priority
+			else:
+				Manager.max_priority = Manager.network_max_priority
+
 			time.sleep(settings.update_gas_every)
 
 	def _save_wallets(self):

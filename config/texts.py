@@ -25,7 +25,7 @@ Send transaction (main coin)
 	4e 		Send ERC-20 		(not imp)
 	4ea 	Send ERC-20 to All	(not imp)
 Other functions:
-upd - update wallets | 01 - last block info | 02 - check connection | t - tests | e - exit"""
+upd - update wallets | 01 - last block info | 02 - check connection | 03 - gas info | t - tests | e - exit"""
 
 # Import an acc, add_wallet() method:
 add_input_private_key = "Write your private key:"
@@ -35,7 +35,8 @@ add_error_wrong_already_exist = "Error, this wallet already exist in the system"
 add_ask_label = "Write desired label (or Enter to get random) >>> "
 
 # Delete an acc, remove_wallet() method:
-del_instruction_to_delete_wallet = """To delete a wallet - write it's number or the address. To delete batch write "last N" or "first N"""
+del_instruction_to_delete_wallet = "To delete a wallet - write it's number or the address. " \
+								   "To delete batch write \"last N\" or \"first N\""
 del_no_wallets = "No wallets to delete"
 del_successfully_deleted = "The wallet was successfully deleted"
 

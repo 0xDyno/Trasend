@@ -1,6 +1,7 @@
 import threading
 
 from services.manager import Manager
+from services.trans import print_gas_price_info
 from services import assist
 from config.texts import main_text_instruction, success
 from config.settings import max_generate_addr
@@ -56,6 +57,8 @@ def main():
                 m.print_block_info()
             case "02":                                                                      # update wallets
                 m.connection_status()
+            case "03":
+                print_gas_price_info()
             case "t":       # print txs in every wallet
                 for w in m.wallets:
                     txs = w.txs
