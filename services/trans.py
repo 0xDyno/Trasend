@@ -79,8 +79,8 @@ def compose_native_transaction(web3: Web3, sender: Wallet, nonce, receiver: Wall
 	So I wrote also second variant to send transaction
 	:return: transaction hash, string
 	"""
-	max_gas_fee = int(web3.eth.gas_price * settings.multiplier)
-	max_prior_fee = int(web3.eth.max_priority_fee * settings.multiplier_priority)
+	max_gas_fee = manager.Manager.gas_price * settings.multiplier
+	max_prior_fee = manager.Manager.max_priority * settings.multiplier_priority
 	chain_id = web3.eth.chain_id
 
 	try:  # Usual way that should work
@@ -101,8 +101,8 @@ def compose_native_transaction(web3: Web3, sender: Wallet, nonce, receiver: Wall
 	except Exception:
 		# When something wrong (wrong network etc..) - the last try.. can work because some networks
 		# don't have ETH updates and don't support new gas type
-		logs.pr_trans("compose_transaction_and_send: try to send transaction type #2 - Fail")
-		logs.pr_trans("compose_transaction_and_send: try to send transaction no type")
+		logs.pr_trans("compose_transaction_and_send: Fail")
+		logs.pr_trans("compose_transaction_and_send: try to send transaction no-type")
 		tx = {
 			"to": receiver.addr,
 			"nonce": sender.nonce,
