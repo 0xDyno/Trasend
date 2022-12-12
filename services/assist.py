@@ -1,15 +1,16 @@
+import os
 import pickle
 import time
+from web3 import Web3
 from eth_account import Account
 
-from config import settings, texts
-from random import random
-from web3 import Web3
-from datetime import date
 from cryptography.fernet import Fernet
+from random import random
+from datetime import date
+
+from config import settings, texts
 from services.classes import Wallet
 from services import threads, trans, manager
-import os
 
 
 """
@@ -64,9 +65,9 @@ def print_all_info(list_with_wallets):
 		print(f"{i + 1}. {list_with_wallets[i].get_all_info()}")  	# and its index
 
 
-def print_all_txs(web3: Web3):
+def print_all_txs(w3: Web3):
 	"""Prints all TXs with current network (chainId)"""
-	chain_id = web3.eth.chain_id
+	chain_id = w3.eth.chain_id
 	for tx in manager.Manager.all_txs:		# prints all TXs
 		if chain_id == tx.chain_id:					# with current network
 			print(tx)
@@ -106,7 +107,7 @@ def ask_label(set_with_labels):
 			return label
 
 
-def update_wallet(web3: Web3, wallet: Wallet, set_labels: set, update_tx=False):
+def update_wallet(w3: Web3, wallet: Wallet, set_labels: set, update_tx=False):
 	"""
 	Receives Wallet. If the wallet doesn't have an address - method parses it and adds
 	After that it updates balance and transaction count
@@ -120,33 +121,33 @@ def update_wallet(web3: Web3, wallet: Wallet, set_labels: set, update_tx=False):
 		if wallet.label is None:
 			wallet.label = generate_label(set_labels)
 
-		wallet.balance_in_wei = web3.eth.get_balance(wallet.addr)  		# update balance
-		wallet.nonce = web3.eth.get_transaction_count(wallet.addr)  	# update nonce
+		wallet.balance_in_wei = w3.eth.get_balance(wallet.addr)  		# update balance
+		wallet.nonce = w3.eth.get_transaction_count(wallet.addr)  	# update nonce
 
 		if update_tx:
 			update_txs_for_wallet(wallet)  # updates txs list and each tx if status == None
-			[trans.update_tx(web3, tx) for tx in wallet.txs if tx.status is None]
+			[trans.update_tx(w3, tx) for tx in wallet.txs if tx.status is None]
 	else:
 		print(texts.upd_error_not_wallet)
 
 
-def generate_wallet(web3, set_labels, set_keys, result_list):
+def generate_wallet(w3, set_labels, set_keys, result_list):
 	"""Generates unique 1 wallet (key + label). Updates it and add to the list
 	"""
-	key = web3.toHex(web3.eth.account.create().key)  	# get private key
+	key = w3.toHex(w3.eth.account.create().key)  	# get private key
 	if key not in set_keys:  					# check we don't have it
 		label = generate_label(set_labels)  	# generate unique label
 		wallet = Wallet(key, label)  			# create wallet
-		update_wallet(web3, wallet, set_labels)		# update it
+		update_wallet(w3, wallet, set_labels)		# update it
 
 		result_list.append(wallet)				# save it
 
 		print(".", end="")  # just "progress bar"
 	else:										# If we have that key - try again... tho I doubt it
-		generate_wallet(web3, set_labels, set_keys, result_list)	# just in case...
+		generate_wallet(w3, set_labels, set_keys, result_list)	# just in case...
 
 
-def generate_wallets(web3, set_labels, set_keys, number) -> list:
+def generate_wallets(w3, set_labels, set_keys, number) -> list:
 	"""Generates wallets and returns list with updates wallets
 	:return: list with updated Wallets
 	"""
@@ -156,8 +157,8 @@ def generate_wallets(web3, set_labels, set_keys, number) -> list:
 
 	for _ in range(number):					# Do N times
 		if threads.can_create_daemon():		# If we can create daemon - do it
-			daemon = threads.start_todo(generate_wallet, False,					# create daemon
-						web3, set_labels, set_keys, new_generated_wallets)		# to do generate_wallet()
+			daemon = threads.start_todo(generate_wallet, False,  # create daemon
+										w3, set_labels, set_keys, new_generated_wallets)		# to do generate_wallet()
 			list_daemons.append(daemon)											# add to the list
 		else:								# If we can't create - sleep and wait
 			time.sleep(settings.wait_to_create_daemon_again)

@@ -29,7 +29,7 @@ class Manager:
 	All operations that related to transaction located in trans.py
 	"""
 	__singleton = None
-	all_txs = set()
+	all_txs = list()
 	gas_price = None
 	max_priority = None
 
@@ -39,8 +39,8 @@ class Manager:
 
 	def new_connection(self, connection: Web3):
 		assist.is_web3(connection)
-		self.web3 = connection
-		self.chain_id = self.web3.eth.chain_id
+		self.w3 = connection
+		self.chain_id = self.w3.eth.chain_id
 
 	def __new__(cls, *args, **kwargs):
 		if cls.__singleton is None:
@@ -61,8 +61,8 @@ class Manager:
 			self.is_initialized = True
 
 			# Main params:
-			self.web3 = assist.is_web3(connection)
-			self.chain_id = self.web3.eth.chain_id
+			self.w3 = assist.is_web3(connection)
+			self.chain_id = self.w3.eth.chain_id
 
 			self.wallets = list()
 			self.set_keys = set()
@@ -86,7 +86,7 @@ class Manager:
 			threads.start_todo(self._daemon_update_last_block, True)
 			threads.start_todo(self._daemon_update_gas, True)
 		else:
-			print(f"Connection status: {self.web3.isConnected()}")
+			print(f"Connection status: {self.w3.isConnected()}")
 
 ###################################################################################################
 # Inner methods ###################################################################################
@@ -203,8 +203,8 @@ class Manager:
 	def _daemon_update_gas(self):
 		"""Daemin updates gas price & max priority every N secs"""
 		while True:
-			Manager.gas_price = self.web3.eth.gas_price
-			Manager.max_priority = self.web3.eth.max_priority_fee
+			Manager.gas_price = self.w3.eth.gas_price
+			Manager.max_priority = self.w3.eth.max_priority_fee
 			time.sleep(settings.update_gas_every)
 
 	def _save_wallets(self):
@@ -264,7 +264,7 @@ class Manager:
 			print(texts.error_wrong_generate_number)
 		else:
 			# get the list with new generated wallets
-			new_generated_wallets = assist.generate_wallets(self.web3,
+			new_generated_wallets = assist.generate_wallets(self.w3,
 															self.set_labels.copy(),
 															self.set_keys.copy(),
 															number)
@@ -323,12 +323,12 @@ class Manager:
 			receiver = self.get_wallet_by_text(input())
 
 			print("Write amount:")
-			amount = self.web3.toWei(input(), "ether")
+			amount = self.w3.toWei(input(), "ether")
 
 			daemon.join()
-			txs_list: list = trans.transaction_sender(self.web3, sender, receiver, amount)
+			txs_list: list = trans.transaction_sender(self.w3, sender, receiver, amount)
 
-			[Manager.all_txs.add(tx) for tx in txs_list if tx not in Manager.all_txs]			# add tx
+			[Manager.all_txs.append(tx) for tx in txs_list if tx not in Manager.all_txs]		# add tx
 			[print(tx) for tx in txs_list]														# print
 
 		except Exception as e:
@@ -342,12 +342,12 @@ class Manager:
 		sender = receivers.pop(sender_index)									# get sender and delete from list
 		daemon = threads.start_todo(self.update_wallet, True, sender)			# start daemon to update sender info
 
-		amount = self.web3.toWei(input("How much send to each: "), "ether")
+		amount = self.w3.toWei(input("How much send to each: "), "ether")
 
-		if trans.print_price_and_confirm(self.web3.eth.chain_id, value=amount, receivers=receivers):
+		if trans.print_price_and_confirm(self.w3.eth.chain_id, value=amount, receivers=receivers):
 			daemon.join()
-			txs = trans.transaction_sender(self.web3, sender, receivers, amount)	# send txs
-			[Manager.all_txs.add(tx) for tx in txs if tx not in Manager.all_txs]	# add to lis
+			txs = trans.transaction_sender(self.w3, sender, receivers, amount)	# send txs
+			[Manager.all_txs.append(tx) for tx in txs if tx not in Manager.all_txs]	# add to lis
 			[print(tx) for tx in txs]
 
 	def update_wallets(self):
@@ -388,19 +388,19 @@ class Manager:
 				print(texts.error_block_doesnt_exist_yet)
 				return
 			else:
-				block = self.web3.eth.get_block(block_number)
+				block = self.w3.eth.get_block(block_number)
 
 		for k, v in block.items():					# get key and value
 			print(k, end=" >>> ")						# print key, no \n
 
 			if isinstance(v, bytes):								# if Value is bytes
-				print(self.web3.toHex(v))		# decode Value and print
+				print(self.w3.toHex(v))		# decode Value and print
 			elif isinstance(v, list):			# if Value is list
 				if not v:						# list empty - print \n
 					print()
 				else:							# not empty
 					for el in v:				# decode and print all elements
-						print(self.web3.toHex(el))
+						print(self.w3.toHex(el))
 			else:								# if Value not list and not bytes - print it
 				print(v)
 
@@ -425,7 +425,7 @@ class Manager:
 	def print_all_txs(self):
 		"""Prints all TXs with current network (chain_id)"""
 		if Manager.all_txs:
-			assist.print_all_txs(self.web3)
+			assist.print_all_txs(self.w3)
 		else:
 			print(texts.text_no_tx)
 
@@ -446,7 +446,7 @@ class Manager:
 	def update_wallet(self, wallet, update_tx=False):
 		"""Updates wallet balance & nonce, adds addr if wallet doesn't have it.
 		Updates TXs in the wallet list which doesn't have status (Success/Fail)"""
-		assist.update_wallet(self.web3, wallet, self.set_labels, update_tx)
+		assist.update_wallet(self.w3, wallet, self.set_labels, update_tx)
 
 	def delete_txs_history(self):
 		assist.delete_txs_history(self.wallets)
@@ -455,7 +455,7 @@ class Manager:
 		"""Prints TXs for selected wallet in current blockchain"""
 		text = self.print_and_ask(after="Choose the acc:")				# prints wallets + ask to choose
 		wallet = self.get_wallet_by_text(text)							# gets wallet from str
-		assist.print_txs_for_wallet(self.web3.eth.chain_id, wallet)		# prints txs for that wallet in the network
+		assist.print_txs_for_wallet(self.w3.eth.chain_id, wallet)		# prints txs for that wallet in the network
 
 	def get_wallet_by_text(self, addr_or_number) -> Wallet:
 		"""Returns wallet by address or number (starts from 1)
@@ -472,10 +472,10 @@ class Manager:
 		return assist.ask_label(self.set_labels.copy())
 
 	def update_last_block(self):
-		self.last_block = self.web3.eth.get_block("latest")
+		self.last_block = self.w3.eth.get_block("latest")
 
 	def connection_status(self):
-		if self.web3.isConnected():
+		if self.w3.isConnected():
 			is_connected = "Success"
 		else:
 			is_connected = "Fail"
