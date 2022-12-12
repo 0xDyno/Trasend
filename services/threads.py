@@ -25,7 +25,7 @@ def start_todo(func, daemon, *args):
 	"""
 	Start a daemon for tasks
 	:param func: Function to do
-	:param daemon: is daemon?
+	:param daemon: True / False
 	:param args: other args..
 	:return: created thread
 	"""

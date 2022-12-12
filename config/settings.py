@@ -28,3 +28,7 @@ chain_default_token = {
 	1: "ETH",
 	5: "ETH"
 }
+chain_name = {
+	1: "ETH mainnet",
+	5: "Goerli ETH testnet"
+}

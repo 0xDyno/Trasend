@@ -2,14 +2,13 @@ import pickle
 import time
 from eth_account import Account
 
-import services.manager
-from config import settings, text
+from config import settings, texts
 from random import random
 from web3 import Web3
 from datetime import date
 from cryptography.fernet import Fernet
 from services.classes import Wallet
-from services import threads, trans
+from services import threads, trans, manager
 import os
 
 
@@ -36,9 +35,7 @@ def is_number(e: str) -> bool:
 
 
 def is_web3(connection):
-	"""
-	Checks and return the connection if it's Web3. Otherwise, throws an error
-	"""
+	"""Checks and return the connection if it's Web3. Otherwise, throws an error"""
 	if not isinstance(connection, Web3):
 		raise TypeError("Can't create Manager because got wrong Connection type. "
 						f"Should be {Web3} object, got: {connection}")
@@ -51,22 +48,35 @@ def get_fernet_key():
 
 
 def print_wallets(list_with_wallets):
+	"""Prints wallets with its index"""
 	length = len(list_with_wallets)
-	for i in range(length):  									# print all addresses
-		print(f"{i + 1}. {list_with_wallets[i].get_info()}")  	# with its index
+	for i in range(length):  						# print all addresses
+		print(f"{i + 1}. {list_with_wallets[i]}")  	# with its index
 
 
 def print_all_info(list_with_wallets):
+	"""Prints wallets with its index and TXs list"""
 	length = len(list_with_wallets)
 	for i in range(length):											# prints info with TXs
 		print(f"{i + 1}. {list_with_wallets[i].get_all_info()}")  	# and its index
 
 
 def print_all_txs(web3: Web3):
+	"""Prints all TXs with current network (chainId)"""
 	chainId = web3.eth.chain_id
-	for tx in services.manager.Manager.all_txs:		# prints all TXs
+	for tx in manager.Manager.all_txs:		# prints all TXs
 		if chainId == tx.chainId:					# with current network
 			print(tx)
+
+
+def print_txs_for_wallet(chainId: int, wallet: Wallet):
+	"""Prints wallet all txs for the wallet in given network"""
+	print(settings.chain_name[chainId] + " | " + wallet.__str__())
+	update_txs_for_wallet(wallet)
+
+	for tx in wallet.txs:
+		if tx.chainId == chainId:
+			print("\t" + tx.str_no_bc())
 
 
 def generate_label(set_with_labels):
@@ -80,7 +90,7 @@ def generate_label(set_with_labels):
 
 def ask_label(set_with_labels):
 	while True:
-		label = input(text.add_ask_label).strip()
+		label = input(texts.add_ask_label).strip()
 		if not label:								# If empty - generate 5 digits number
 			return generate_label(set_with_labels)
 
@@ -110,10 +120,10 @@ def update_wallet(web3: Web3, wallet: Wallet, set_labels: set):
 		wallet.balance_in_wei = web3.eth.get_balance(wallet.addr)  		# update balance
 		wallet.nonce = web3.eth.get_transaction_count(wallet.addr)  	# update nonce
 
-		# update Tx if needed (status is None)
+		update_txs_for_wallet(wallet)		# updates txs list and each tx if status == None
 		[trans.update_tx(web3, tx) for tx in wallet.txs if tx.status is None]
 	else:
-		print(text.upd_error_not_wallet)
+		print(texts.upd_error_not_wallet)
 
 
 def generate_wallet(web3, set_labels, set_keys, result_list):
@@ -168,10 +178,10 @@ def get_wallet_index_by_str(wallets_list: list, set_addr: set, addr: str) -> int
 			raise IndexError("Wrong number")  			# throw IndexError
 		return number - 1  								# if not - return Index
 	elif not addr.startswith("0x") or len(addr) != settings.address_length:
-		raise Exception(text.error_not_number_or_address)
+		raise Exception(texts.error_not_number_or_address)
 	else:
 		if addr not in set_addr:  							# if there's no such wallet
-			raise Exception(text.error_no_such_address)  	# throw error
+			raise Exception(texts.error_no_such_address)  	# throw error
 		else:
 			addr = addr.lower()
 			for i in range(total_wallets):  		# else find its Index
@@ -180,9 +190,15 @@ def get_wallet_index_by_str(wallets_list: list, set_addr: set, addr: str) -> int
 
 
 def delete_txs_history(wallets: list):
-	if services.manager.Manager.all_txs:
+	if manager.Manager.all_txs:
 		[wallet.txs.clear() for wallet in wallets]		# delete TXs from wallets
-		services.manager.Manager.all_txs.clear()		# clear the set
+		manager.Manager.all_txs.clear()					# clear the set
+
+
+def update_txs_for_wallet(wallet):
+	for tx in manager.Manager.all_txs:
+		if (wallet.addr == tx.receiver or wallet.addr == tx.sender) and tx not in wallet.txs:
+			wallet.txs.append(tx)
 
 
 def check_saveloads_files(folder: str, path_to_file: str):

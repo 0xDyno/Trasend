@@ -1,6 +1,8 @@
+import threading
+
 from services.manager import Manager
 from services import assist
-from config.text import main_text_instruction, success
+from config.texts import main_text_instruction, success
 from config.settings import max_generate_addr
 from config.keys import HTTPS_GOERLI, HTTPS_ETH
 
@@ -18,6 +20,8 @@ def main():
                 m.print_all_info()
             case "1t":                                                                      # Show all TXs
                 m.print_all_txs()
+            case "1at":                                                                     # Show all TXs for 1 acc
+                m.print_txs_for_wallet()
             case "2":                                                                       # Add wallets
                 m.try_add_wallet()
             case "2g":                                                                      # Generate wallets
@@ -58,20 +62,20 @@ def main():
                 m.print_block_info()
             case "02":                                                                      # update wallets
                 m.connection_status()
-            case "t":                                                                       #
+            case "t":       # print txs in every wallet
                 for w in m.wallets:
                     txs = w.txs
                     print(len(txs), txs)
-            case "exit":                                                                    #
+            case "th":      # print total threads
+                print(len(threading.enumerate()), " : ", threading.enumerate())
+            case "exit":
                 break
             case "e":
                 break
             case "i":
                 print("\n%s\n---------------------" % main_text_instruction)
-            case "":
-                print("If you need the instruction - press i")
             case _:
-                print("Wrong command. Try again.")
+                print("Wrong command. If you need instruction - print i")
 
 
 if __name__ == "__main__":
@@ -83,7 +87,7 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print("Exited by Keyboard Interruption")
+        print("Finished")
     finally:
         m.finish_work()
 else:

@@ -1,8 +1,8 @@
 from datetime import datetime
 import webbrowser
 
-from config import text
-from config.settings import chain_explorers, chain_default_token
+from config import texts
+from config.settings import chain_explorers, chain_default_token, chain_name
 from web3 import Web3
 
 
@@ -22,17 +22,14 @@ class Wallet:
         self.txs = list()               # list with Transaction objects
 
     def __str__(self):
-        return self.get_info()
+        format_ = "%s. %s (balance: %.4f ETH)"
+        return format_ % (self.label, self.addr, self.get_eth_balance())
 
     def __repr__(self):
         return self.__str__()
 
-    def get_info(self):
-        format_ = "%s. %s (balance: %.4f ETH)"
-        return format_ % (self.label, self.addr, self.get_eth_balance())
-
     def get_all_info(self):
-        line = self.get_info()          # all info
+        line = self.__str__()           # all info
         if self.txs:                    # + all transactions if there are
             line += " | TXs:"
             for tx in self.txs:
@@ -57,14 +54,14 @@ class Wallet:
         tx_type = tx.get_tx_type(self)      # get type Received or Sent
         tx_time = tx.get_time()             # get date
 
-        if tx_type == text.tx_received:     # self - is receiver or sender?
+        if tx_type == texts.tx_received:     # self - is receiver or sender?
             sender_or_receiver = "from " + tx.sender
         else:
             sender_or_receiver = "to " + tx.receiver
         link = chain_explorers[tx.chainId] + tx.tx      # get explorer + tx = link
-        blockchain = chain_default_token[tx.chainId]
+        blockchain = chain_name[tx.chainId]
 
-        format_ = "{blockchain} {status}: {tx_type} {value} {token} {sender_or_receiver} on {date} ({link})"
+        format_ = "({blockchain}) {status}: {tx_type} {value} {token} {sender_or_receiver} on {date} ({link})"
 
         return format_.format(blockchain=blockchain, tx_type=tx_type, value=tx.get_eth_value(), token=tx.which_token,
                             sender_or_receiver=sender_or_receiver, date=tx_time, status=tx.status, link=link)
@@ -105,20 +102,14 @@ class Transaction:
         sender.txs.append(self)
 
     def __str__(self):
-        line = "{blockchain} >> From {sender} sent {amount} {token} to {receiver} on {date}" + \
-               "\n\t{status}, link: {link}"
-        blockchain = chain_default_token[self.chainId]
-        link = chain_explorers[self.chainId] + self.tx
-        return line.format(blockchain=blockchain, sender=self.sender,
-                           amount=Web3.fromWei(self.value, "ether"),
-                           token=self.which_token, receiver=self.receiver,
-                           date=self.get_time(), status=self.status, link=link)
+        return chain_name[self.chainId] + " >> " + self.str_no_bc()
 
-    # def __eq__(self, other):            # required for deserialization
-    #     return self.tx == other.tx
-    #
-    # def __hash__(self):                 # required for deserialization
-    #     return hash(self.tx)
+    def str_no_bc(self):
+        """Returns text with no BlockChain info"""
+        string = "From {sender} sent {amount} {token} to {receiver} on {date}\n\t\t{status}, link: {link}"
+        link = chain_explorers[self.chainId] + self.tx
+        return string.format(sender=self.sender, amount=Web3.fromWei(self.value, "ether"), token=self.which_token,
+                           receiver=self.receiver, date=self.get_time(), status=self.status, link=link)
 
     def get_eth_value(self):
         return Web3.fromWei(self.value, "ether")
@@ -126,9 +117,9 @@ class Transaction:
     def get_tx_type(self, wallet: Wallet):
         """Returns the wallet is sender or receiver"""
         if self.receiver == wallet.addr:
-            return text.tx_received
+            return texts.tx_received
         else:
-            return text.tx_sent
+            return texts.tx_sent
 
     def get_time(self):
         return str(datetime.strftime(self.date, "%d.%m.%Y %H:%M:%S"))

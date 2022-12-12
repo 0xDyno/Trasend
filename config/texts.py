@@ -11,6 +11,7 @@ Show
 	1 		Wallets
 	1a 		Wallets + transactions
 	1t		Transactions
+	1at		All Txs for 1 Address
 Add wallets
 	2		Add
 	2g 		Generate wallets
@@ -33,8 +34,7 @@ add_error_wrong_already_exist = "Error, this wallet already exist in the system"
 add_ask_label = "Write desired label (or Enter to get random) >>> "
 
 # Delete an acc, remove_wallet() method:
-del_instruction_to_delete_wallet = """To delete a wallet - write it's number or the address. To delete batch write "last N" or "first N"
-List of existed wallets:"""
+del_instruction_to_delete_wallet = """To delete a wallet - write it's number or the address. To delete batch write "last N" or "first N"""
 del_no_wallets = "No wallets to delete"
 del_successfully_deleted = "The wallet was successfully deleted"
 

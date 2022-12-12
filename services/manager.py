@@ -1,14 +1,11 @@
 # Import my files
-import time
-
-from config import text, settings
+from config import texts, settings
 from services.classes import Wallet
 from services import assist, trans, threads
 
 # Import third-party files
 from web3 import Web3
-from cryptography.fernet import Fernet
-import pickle
+import time
 
 
 def save_txs():
@@ -16,13 +13,13 @@ def save_txs():
 
 
 def load_txs():
-	print(text.new_text_load_txs, end=" ")  # Start
+	print(texts.new_text_load_txs, end=" ")  	# Start
 	loaded_data = assist.load_data(settings.folder, settings.saved_txs)
 	if loaded_data is None:
-		print(text.new_text_no_txs_to_load)  # End - Tell no wallets to load
+		print(texts.new_text_no_txs_to_load)  	# End - Tell no wallets to load
 	else:
 		Manager.all_txs = loaded_data
-		print(text.success)  # End - Success
+		print(texts.success)  					# End - Success
 
 
 class Manager:
@@ -76,11 +73,10 @@ class Manager:
 
 			# Init sets if there are wallets
 			if not self.wallets:
-				print(text.new_text_no_wallets_to_init)
+				print(texts.new_text_no_wallets_to_init)
 			else:
 				self.update_wallets()
 				self._initialize_sets()
-				self._initialize_txs()
 
 			# Start a demon to regularly update info (last block)
 			self.daemon_update_lb = threads.start_todo(self._daemon_update_last_block, True)
@@ -93,18 +89,10 @@ class Manager:
 
 	def _initialize_sets(self):
 		"""Init sets with wallet info"""
-		print(text.sets_text_init_sets, end=" ")
+		print(texts.sets_text_init_sets, end=" ")
 		for wallet in self.wallets:  # for each wallet
 			self._add_to_sets(wallet)  # add to sets
-		print(text.success)
-
-	def _initialize_txs(self):
-		"""From all_tx init Wallets with related tx
-		(if this wallet related to tx - adds tx into wallet's list)"""
-		for wallet in self.wallets:
-			for tx in Manager.all_txs:
-				if wallet.addr == tx.receiver or wallet.addr == tx.sender:
-					wallet.txs.append(tx)
+		print(texts.success)
 
 	def _add_to_sets(self, wallet):
 		"""Adds new wallet to sets if there's no such wallet.
@@ -114,7 +102,7 @@ class Manager:
 			or wallet.label in self.set_labels \
 			or wallet.addr_lower in self.set_addr:
 
-			raise Exception(text.error_add_to_set)
+			raise Exception(texts.error_add_to_set)
 		else:
 			self.set_keys.add(wallet.key())
 			self.set_labels.add(wallet.label)
@@ -130,7 +118,7 @@ class Manager:
 			self.set_labels.remove(wallet.label)
 			self.set_addr.remove(wallet.addr_lower)
 		else:
-			raise Exception(text.error_delete_from_set)
+			raise Exception(texts.error_delete_from_set)
 
 	def _add_wallet(self, wallet: Wallet):
 		"""Adds wallet into the list and sets"""
@@ -177,7 +165,7 @@ class Manager:
 		if isinstance(index_or_obj, int):
 			wallet = self.wallets.pop(index_or_obj)  # del from the list
 			self._delete_from_sets(wallet)  # del from the sets
-			print(text.del_successfully_deleted, wallet.addr)  # print about success
+			print(texts.del_successfully_deleted, wallet.addr)  # print about success
 			del wallet
 		else:
 			raise TypeError("It's not wallet or index, I don't work with it. Tell the devs")
@@ -195,10 +183,10 @@ class Manager:
 			self.update_last_block()  # Try to update
 
 			if self.last_block is not None:  # if not Ok - tell it
-				print(text.success)
+				print(texts.success)
 				return True
 			else:
-				print(text.fail)  # no? - So sad...
+				print(texts.fail)  # no? - So sad...
 				return False
 
 	def _daemon_update_last_block(self):
@@ -214,13 +202,13 @@ class Manager:
 		assist.save_data(self.wallets, settings.folder, settings.saved_wallets)
 
 	def _load_wallets(self):
-		print(text.new_text_load_wallets, end=" ")  	# Start
+		print(texts.new_text_load_wallets, end=" ")  	# Start
 		loaded_data = assist.load_data(settings.folder, settings.saved_wallets)
 		if loaded_data is None:
-			print(text.new_text_no_wallets_to_load)		# End - Tell no wallets to load
+			print(texts.new_text_no_wallets_to_load)		# End - Tell no wallets to load
 		else:
 			self.wallets = loaded_data
-			print(text.success)  							# End - Success
+			print(texts.success)  							# End - Success
 
 ###################################################################################################
 # Default methods #################################################################################
@@ -230,13 +218,13 @@ class Manager:
 		"""Parses line and adds a wallet by private key"""
 		while True:
 			try:
-				print(text.add_input_private_key)
+				print(texts.add_input_private_key)
 				key = input().strip().lower()
 				if not key:
 					break
 				# If starts not with 0x or length not 66 symbols - tell about mistake
 				if not key.startswith("0x") or len(key) != settings.private_key_length:
-					print(text.add_error_wrong_format)
+					print(texts.add_error_wrong_format)
 					continue
 				elif key in self.set_keys:  			# If exits - tell the label of the wallet
 					label = "Hmmm... unknown.. tell the devs"
@@ -257,14 +245,14 @@ class Manager:
 						self.update_wallet(wallet)  		# update info
 
 					self._add_wallet(wallet)					# add wallet
-					print(f"Successfully added the wallet: {wallet.get_info()}")
+					print(f"Successfully added the wallet: {wallet}")
 			except Exception as e:
 				# raise Exception(e)
-				print(text.error_something_wrong.format(e))
+				print(texts.error_something_wrong.format(e))
 
 	def generate_wallets(self, number):
 		if number > settings.max_generate_addr or number < 1:
-			print(text.error_wrong_generate_number)
+			print(texts.error_wrong_generate_number)
 		else:
 			# get the list with new generated wallets
 			new_generated_wallets = assist.generate_wallets(self.web3,
@@ -282,15 +270,12 @@ class Manager:
 		If change - be careful with .lower method !!
 		"""
 		if not self.wallets:  			# If no wallets
-			print(text.del_no_wallets)  # tell about it
+			print(texts.del_no_wallets)  # tell about it
 			return  					# and return
 
 		try:
-			print(text.del_instruction_to_delete_wallet)	# instruction
-			self.print_wallets()  							# print wallets
-			print("---------------------")					# and line
-
-			addr = input().strip().lower()
+			print(texts.del_instruction_to_delete_wallet)			# instruction
+			addr = self.print_and_ask(before="List of existed wallets:")
 			if not addr:
 				return
 
@@ -303,7 +288,7 @@ class Manager:
 				index = self.get_wallet_index_by_text(addr)  	# delete it
 				self._delete_wallet(index)
 		except Exception as e:
-			print(text.error_something_wrong.format(e))
+			print(texts.error_something_wrong.format(e))
 
 	def delete_all(self):
 		"""Deletes all wallets, use with careful"""
@@ -315,12 +300,11 @@ class Manager:
 	def try_send_transaction(self):
 		try:
 			if not self.wallets: 	 	# If no wallets
-				print(text.text_no_wallets)  # tell about it
+				print(texts.text_no_wallets)  # tell about it
 				return  					# and return
 
 			print("All wallets: ")  					# instruction
 			self.print_wallets()  						# print wallets
-			print("---------------------")  			# and line
 
 			print("From which send:")
 			sender = self.get_wallet_by_text(input())
@@ -341,13 +325,13 @@ class Manager:
 			[print(tx) for tx in txs_list]														# print
 
 		except Exception as e:
-			print(text.error_something_wrong.format(e))
+			print(texts.error_something_wrong.format(e))
 
 	def update_wallets(self):
 		if not self.wallets:
-			print(text.upd_text_no_wallets_to_update)
+			print(texts.upd_text_no_wallets_to_update)
 		else:
-			print(text.upd_text_updating_wallets, end=" ")
+			print(texts.upd_text_updating_wallets, end=" ")
 
 			list_daemons = list()
 
@@ -359,8 +343,7 @@ class Manager:
 					time.sleep(settings.wait_to_create_daemon_again)
 
 			[daemon.join() for daemon in list_daemons if daemon.is_alive()]  	# wait will all threads finish
-			self._initialize_txs()												# add new TXs
-			print(text.success)
+			print(texts.success)
 
 	def print_block_info(self, block_number=None):
 		"""
@@ -371,7 +354,7 @@ class Manager:
 		"""
 		# We have to know info about the last block
 		if not self._check_last_block():
-			print(text.error_no_info_about_last_block)
+			print(texts.error_no_info_about_last_block)
 			return
 
 		# We need to know that's the argument is not None. If None - use Last Block
@@ -384,7 +367,7 @@ class Manager:
 
 			# Check the asked block is smaller than the last one
 			if block_number > self.last_block["number"]:
-				print(text.error_block_doesnt_exist_yet)
+				print(texts.error_block_doesnt_exist_yet)
 				return
 			else:
 				block = self.web3.eth.get_block(block_number)
@@ -412,21 +395,35 @@ class Manager:
 		if self.wallets:
 			assist.print_wallets(self.wallets)
 		else:
-			print(text.text_no_wallets)
+			print(texts.text_no_wallets)
 
 	def print_all_info(self):
 		"""Prints wallets with its index and TXs list"""
 		if self.wallets:
 			assist.print_all_info(self.wallets)
 		else:
-			print(text.text_no_wallets)
+			print(texts.text_no_wallets)
 
 	def print_all_txs(self):
 		"""Prints all TXs with current network (chainId)"""
 		if Manager.all_txs:
 			assist.print_all_txs(self.web3)
 		else:
-			print(text.text_no_tx)
+			print(texts.text_no_tx)
+
+	def print_and_ask(self, before=None, after=None):
+		"""Prints wallets and ask to choose the wallet.
+		:param before: str, prints text before wallets list
+		:param after: str, prints text after wallets list"""
+		if before is not None:
+			print(before)
+
+		self.print_wallets()
+
+		if after is not None:
+			print(after)
+
+		return input().strip().lower()
 
 	def update_wallet(self, wallet):
 		"""Updates wallet balance & nonce, adds addr if wallet doesn't have it.
@@ -436,15 +433,21 @@ class Manager:
 	def delete_txs_history(self):
 		assist.delete_txs_history(self.wallets)
 
+	def print_txs_for_wallet(self):
+		"""Prints TXs for selected wallet in current blockchain"""
+		text = self.print_and_ask(after="Choose the acc:")				# prints wallets + ask to choose
+		wallet = self.get_wallet_by_text(text)							# gets wallet from str
+		assist.print_txs_for_wallet(self.web3.eth.chain_id, wallet)		# prints txs for that wallet in the network
+
 	def get_wallet_by_text(self, addr_or_number):
 		"""Returns wallet by address or number (starts from 1)
 		:param addr_or_number: should be lower"""
 		index = self.get_wallet_index_by_text(addr_or_number)
 		return self.wallets[index]
 
-	def get_wallet_index_by_text(self, text_):
+	def get_wallet_index_by_text(self, text):
 		"""Returns index of the wallet in the list with received text (addr or number)"""
-		return assist.get_wallet_index_by_str(self.wallets, self.set_addr, text_)
+		return assist.get_wallet_index_by_str(self.wallets, self.set_addr, text)
 
 	def ask_label(self):
 		"""Asks label and checks uniqueness"""
