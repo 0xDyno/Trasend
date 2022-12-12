@@ -7,21 +7,22 @@ File With Texts
 
 """For Main"""			#################################################
 main_text_instruction = """Print number:
-Print:
-	1 		Show all wallets
-	1+ 		Show all wallets + transactions
-	1t		Show all transactions
+Show:
+	1 		Wallets
+	1a 		Wallets + transactions
+	1t		Transactions
 Add wallets
 	2		Add
-	2+ 		Generate wallets
+	2g 		Generate wallets
 Delete wallets
-	3		Delete wallets (delete last & all here not)
+	3		Delete one wallet (delete last & all here not)
 	3l 		Delete last 		(use 3 for now)
-	3a		Delete all			(use 3 for now)
+	3a		Delete all
 	3t		Delete TXs history
-4. Send transaction (main coin)
+Send transaction (main coin)
+	4		Send native (ETH)
 	4e 		Send ERC-20 		(not imp)
-	4all	Send to All wallets (not imp)
+	4a		Send to All wallets (not imp)
 Other functions:
 upd - update wallets | 01 - last block info | 02 - check connection | t - tests | e - exit"""
 
@@ -43,8 +44,10 @@ del_no_wallets = "No wallets to delete"
 del_successfully_deleted = "The wallet was successfully deleted"
 
 # Text to initialize in method __new__:
-new_text_load_the_wallets = "Working: loading the wallets into the system..."
-new_text_not_wallets_to_load = "no wallets to load into the system."
+new_text_load_wallets = "Working: loading the wallets into the system..."
+new_text_load_txs = "Working: loading the txs into the system..."
+new_text_no_wallets_to_load = "no wallets to load into the system."
+new_text_no_txs_to_load = "no txs to load into the system."
 new_text_no_wallets_to_init = "Init is finished."
 sets_text_init_sets = "Initialize addition system files..."
 upd_text_updating_wallets = "Working: updating the wallets info..."

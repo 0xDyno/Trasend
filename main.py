@@ -1,7 +1,7 @@
 import services.classes
 from services import assist
 from services.manager import Manager
-from config.text import main_text_instruction
+from config.text import main_text_instruction, success
 from web3 import Web3
 import config.keys
 
@@ -13,7 +13,7 @@ def main():
         match text:
             case "1":                                                                       # Show all wallets
                 m.print_wallets()
-            case "1+":                                                                      # Show all wallets + trans
+            case "1a":                                                                      # Show all wallets + trans
                 m.print_all_info()
             case "1t":                                                                      # Show all TXs
                 m.print_all_txs()
@@ -27,13 +27,20 @@ def main():
                     print("Not a number")
             case "3":                                                                       # Delete wallets
                 m.try_delete_wallet()
-            case "3t":
-                assist.delete_txs_history()
+            case "3l":                                  # to change
+                pass
+            case "3a":                                                                      # Delete all
+                if assist.confirm():
+                    m.delete_all()
+            case "3t":                                                                      # Delete all transactions
+                if assist.confirm():
+                    m.delete_txs_history()
+                    print(success)
             case "4":                                                                       # Send transaction (main co)
                 m.try_send_transaction()
-            case "4all":                                                                    # Send to All wallets
+            case "4all":                                # to implement Send to All wallets
                 pass
-            case "4e":                                                                      # Send ERC-20
+            case "4e":                                  # to implement Send ERC-20
                 pass
             case "5":                                                                       # empty
                 pass
@@ -52,7 +59,7 @@ def main():
             case "02":                                                                      # update wallets
                 m.connection_status()
             case "t":                                                                       #
-                for w in m.wallets_list:
+                for w in m.wallets:
                     txs = w.txs
                     print(len(txs), txs)
             case "exit":                                                                    #

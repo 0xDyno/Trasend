@@ -1,3 +1,4 @@
+import pickle
 import time
 from eth_account import Account
 
@@ -16,6 +17,10 @@ import os
 File with general methods to alleviate Manager (make it easy to read)
 Not important methods/functions which doesn't work with data directly will be here
 """
+
+
+def confirm():
+	return input("Are you sure? Write \"y\" to confirm: ").lower() == "y"
 
 
 def is_number(e: str) -> bool:
@@ -38,45 +43,6 @@ def is_web3(connection):
 		raise TypeError("Can't create Manager because got wrong Connection type. "
 						f"Should be {Web3} object, got: {connection}")
 	return connection
-
-
-def check_save_load_files():
-	"""Checks if the directory and files exist.
-	If everything exist - does nothing.
-	If nothing exist - creates everything.
-	For more - read the code ^_^					"""
-	def create_cryptography_key():				# Meth to create cryptography key
-		with open(settings.crypto_key, "wb") as w:
-			w.write(Fernet.generate_key())
-
-	if not os.path.isdir(settings.folder):			# If no Folder, then create:
-		os.mkdir(settings.folder)					# - folder
-		open(settings.saved_wallets, "w").close()	# - file
-		create_cryptography_key()					# - cryptography key
-	else:
-		# if File and Key exists - do Nothing.
-		if os.path.exists(settings.saved_wallets) and os.path.exists(settings.crypto_key):
-			return 	# The most popular situation, put upfront to save time on useless checks...
-
-		# no File - no Key		-->> create files
-		if not os.path.exists(settings.saved_wallets) and not os.path.exists(settings.crypto_key):
-			open(settings.saved_wallets, "w").close()  	# create file
-			create_cryptography_key()  					# create cryptography key
-
-		# no File - yes Key		-->> create file
-		elif not os.path.exists(settings.saved_wallets) and os.path.exists(settings.crypto_key):
-			open(settings.saved_wallets, "w").close()  	# create file
-
-		# yes File - no Key		-->> problem.. rename old_file and create new key + file
-		else:
-			# creation_date_in_ns = os.stat(settings.saved_wallets).st_birthtime	# get the date of creation in ns
-			# creation_date = str(date.fromtimestamp(creation_date_in_ns))			# transform into YYYY-MM-DD
-			creation_date = str(date.fromtimestamp(os.stat(settings.saved_wallets).st_birthtime))	# one line
-			os.rename(settings.saved_wallets,  f"{settings.saved_wallets}_old_{creation_date}")
-
-			print(":::: rename - create K F")
-			open(settings.saved_wallets, "w").close()  	# create file
-			create_cryptography_key()  					# create cryptography key
 
 
 def get_fernet_key():
@@ -208,25 +174,85 @@ def get_wallet_index_by_text(wallets_list: list, set_addr: set, string) -> int:
 					return index  # end return
 
 
-def delete_txs_history():
-	if not services.manager.Manager.all_txs:
-		print(text.text_no_tx)
+def delete_txs_history(wallets: list):
+	if services.manager.Manager.all_txs:
+		[wallet.txs.clear() for wallet in wallets]		# delete TXs from wallets
+		services.manager.Manager.all_txs.clear()		# clear the set
+
+
+def check_saveloads_files(folder: str, path_to_file: str):
+	"""Checks if the directory and files exist.
+	If everything exist - does nothing.
+	If nothing exist - creates everything.
+	For more - read the code ^_^
+	:param folder: 			str -> "folder/"
+	:param path_to_file: 	str -> "folder/name_of_your_file"
+	"""
+	def create_cryptography_key():  # Meth to create cryptography key
+		key = Fernet.generate_key()
+		with open(settings.crypto_key, "wb") as w:
+			w.write(key)
+		print(key)
+		return key
+
+	if not os.path.isdir(folder):  	# If no Folder, then create:
+		os.mkdir(folder)  							# - folder
+		open(path_to_file, "w").close()  			# - file
+		return create_cryptography_key()  			# - cryptography key
+
+	# if File and Key exists - do Nothing		<<-- the most frequent situation
+	if os.path.exists(path_to_file) and os.path.exists(settings.crypto_key):
+		return get_fernet_key()
+
+	# no File - no Key		-->> create files
+	if not os.path.exists(path_to_file) and not os.path.exists(settings.crypto_key):
+		open(path_to_file, "w").close()  			# create file
+		return create_cryptography_key()  			# create cryptography key
+
+	# no File - yes Key		-->> create file
+	if not os.path.exists(path_to_file) and os.path.exists(settings.crypto_key):
+		open(path_to_file, "w").close()  			# create file
+		return get_fernet_key()  					# create cryptography key
+
+	# yes File - no Key		-->> problem.. rename old_file and create new key + file
+
+	# creation_date_in_ns = os.stat(settings.saved_wallets).st_birthtime			# get the date of creation in ns
+	# creation_date = str(date.fromtimestamp(creation_date_in_ns))					# transform into YYYY-MM-DD
+	# above in one line
+	creation_date = str(date.fromtimestamp(os.stat(path_to_file).st_birthtime))
+	os.rename(path_to_file, f"{path_to_file}_old_{creation_date}")  				# rename
+	open(settings.saved_wallets, "w").close()  		# create file
+	return create_cryptography_key()  				# create cryptography key
+
+
+def save_data(data, folder, filepath):
+	"""
+	Received folder name and file name. Saves encoded data to folder/name_file
+	:param data: 		data to save (if empty - will clear the file)
+	:param folder: 		str -> "folder/"
+	:param filepath: 	str -> "folder/name_of_your_file"
+	:return: loaded obj or None
+	"""
+	if not data:						# if empty
+		open(filepath, "w").close()		# clear the file
 	else:
-		for tx in services.manager.Manager.all_txs:  # and them delete everything.
-			tx.delete()
-			del tx
+		key = check_saveloads_files(folder, filepath)		# check data and get secret
+		fernet = Fernet(key)								# get key from secret
 
-		services.manager.Manager.all_txs.clear()
-		print(text.success)
+		data_to_save = fernet.encrypt(pickle.dumps(data))	# dumps -> encode
+		with open(filepath, "wb") as w:						# write
+			w.write(data_to_save)
 
 
-def init_all_txs(wallets_list):
-	unique_txs = services.manager.Manager.all_txs
+def load_data(folder, filepath):
+	key = check_saveloads_files(folder, filepath)		# check data and get secret
+	fernet = Fernet(key)								# get key from secret
 
-	for wallet in wallets_list: 	# for ear wallet
-		if not wallet.txs:  		# check do they have txs
-			continue  				# if no - next wallet
-		else:
-			for tx in wallet.txs:  			# if yes - for each tx in txs
-				if tx not in unique_txs:  	# if we don't have in our unique list
-					unique_txs.add(tx)  	# add
+	with open(filepath, "rb") as r:
+		encrypted_bytes = r.read()
+
+	if encrypted_bytes:
+		bytes_ = fernet.decrypt(encrypted_bytes)
+		return pickle.loads(bytes_)
+	else:
+		return None

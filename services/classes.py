@@ -29,7 +29,7 @@ class Wallet:
     def get_all_info(self):
         line = self.get_info()          # all info
         if self.txs:                    # + all transactions if there are
-            line += "\nTransactions:"
+            line += " | Transactions:"
             for tx in self.txs:
                 line += "\n\t" + self.get_transaction_info(tx)
         else:
@@ -52,9 +52,9 @@ class Wallet:
         tx_time = tx.get_time()             # get date
 
         if tx_type == text.tx_received:     # self - is receiver or sender?
-            sender_or_receiver = "from " + tx.sent_from.addr
+            sender_or_receiver = "from " + tx.sender
         else:
-            sender_or_receiver = "to " + tx.sent_to.addr
+            sender_or_receiver = "to " + tx.receiver
         link = chain_explorers[tx.chainId] + tx.tx      # get explorer + tx = link
         blockchain = chain_default_token[tx.chainId]
 
@@ -67,13 +67,13 @@ class Wallet:
 class Transaction:
 
 
-    def __init__(self, chainId: int, time: float, sent_to: Wallet,
-                 sent_from: Wallet, value: str, tx: str, token=None):
+    def __init__(self, chainId: int, time: float, receiver: Wallet,
+                 sender: Wallet, value: str, tx: str, token=None):
         """
         :param chainId: chainId
         :param time: usual time is secs
-        :param sent_to: sent to Wallet obj
-        :param sent_from: sent from Wallet obj
+        :param receiver: addr str
+        :param sender: addr str
         :param value: sent amount
         :param tx: tx_hash text
         :param token: Ticker of smart-contract, None if default network (ETH, BNB, MATIC etc)
@@ -81,8 +81,8 @@ class Transaction:
         self.chainId = chainId                          #_1
         self.date = datetime.fromtimestamp(time)        #_2 -- datetime
         self.status = None                              #_3 -- Success / Fail / None
-        self.sent_to = sent_to                          #_4 to
-        self.sent_from = sent_from                      #_5 from
+        self.receiver = receiver.addr                   #_4 to
+        self.sender = sender.addr                       #_5 from
         self.value = value                              #_6 value
         self.which_token = bool                         #_7 Main token or TokenTicket
         self.tx = tx                                    #_8 transaction hash
@@ -91,20 +91,23 @@ class Transaction:
         else:
             self.which_token = token
 
+        # ps... if save "sender" and "received" as Objects -> after deserialization there will be
+        #   created 2 new objs for every TX. If 5 tx - 10 Wallet objects, even if there's only 2 wallets
+        #     it's possible to save Wallet and Addr separately, before save - delete Wallets and parse after
         # Add to wallets
-        self.sent_to.txs.append(self)
-        self.sent_from.txs.append(self)
+        receiver.txs.append(self)
+        sender.txs.append(self)
 
     def __str__(self):
-        line = "{blockchain} bc >> From {sender} sent {amount} {token} to {receiver} on {date}" + \
+        line = "{blockchain} >> From {sender} sent {amount} {token} to {receiver} on {date}" + \
                "\n\tStatus {status}, link: "
         blockchain = chain_default_token[self.chainId]
         link = chain_explorers[self.chainId] + self.tx
         return line.format(blockchain=blockchain,
-                           sender=self.sent_from.addr,
+                           sender=self.sender,
                            amount=Web3.fromWei(self.value, "ether"),
                            token=self.which_token,
-                           receiver=self.sent_to.addr,
+                           receiver=self.receiver,
                            date=self.get_time(),
                            status=self.status) + link
 
@@ -119,7 +122,7 @@ class Transaction:
 
     def get_tx_type(self, wallet: Wallet):
         """Returns the wallet is sender or receiver"""
-        if self.sent_to.addr == wallet.addr:
+        if self.receiver == wallet.addr:
             return text.tx_received
         else:
             return text.tx_sent
@@ -129,12 +132,3 @@ class Transaction:
 
     def open_explorer(self):
         webbrowser.open(chain_explorers[self.chainId] + self.tx)
-
-    def delete(self):
-        """For deleting tx -> delete sender & receiver, then .self is deleted"""
-        if self in self.sent_to.txs:
-            index = self.sent_to.txs.index(self)
-            self.sent_to.txs.pop(index)
-        if self in self.sent_from.txs:
-            index = self.sent_from.txs.index(self)
-            self.sent_from.txs.pop(index)
