@@ -1,9 +1,10 @@
-import services.classes
-from services import assist
 from services.manager import Manager
+from services import assist
 from config.text import main_text_instruction, success
+from config.settings import max_generate_addr
+from config.keys import HTTPS_GOERLI, HTTPS_ETH
+
 from web3 import Web3
-import config.keys
 
 
 def main():
@@ -20,18 +21,17 @@ def main():
             case "2":                                                                       # Add wallets
                 m.try_add_wallet()
             case "2g":                                                                      # Generate wallets
-                number = input("How many wallets generate? (up to 100) >>> ")
+                number = input(f"How many wallets generate? (up to {max_generate_addr}) >>> ")
                 if number.isnumeric():
                     m.generate_wallets(int(number))
                 else:
                     print("Not a number")
             case "3":                                                                       # Delete wallets
                 m.try_delete_wallet()
-            case "3l":                                  # to change
-                pass
             case "3a":                                                                      # Delete all
                 if assist.confirm():
                     m.delete_all()
+                    print(success)
             case "3t":                                                                      # Delete all transactions
                 if assist.confirm():
                     m.delete_txs_history()
@@ -66,16 +66,15 @@ def main():
                 break
             case "e":
                 break
-            case "":
-                pass
+            case "i":
+                print("\n%s\n---------------------" % main_text_instruction)
             case _:
                 print("Wrong command. Try again.")
-        print("\n%s\n---------------------" % main_text_instruction)
 
 
 if __name__ == "__main__":
     print("Trying to connect RPC point (node)...", end=" ")
-    connection = Web3(Web3.HTTPProvider(config.keys.HTTPS_GOERLI))
+    connection = Web3(Web3.HTTPProvider(HTTPS_GOERLI))
     print("success")
     m = Manager(connection)
 

@@ -112,23 +112,23 @@ class Manager:
 		# if any field in the set - throw error. Else - add new wallet
 		if wallet.key() in self.set_keys \
 			or wallet.label in self.set_labels \
-			or wallet.addr in self.set_addr:
+			or wallet.addr_lower in self.set_addr:
 
 			raise Exception(text.error_add_to_set)
 		else:
 			self.set_keys.add(wallet.key())
 			self.set_labels.add(wallet.label)
-			self.set_addr.add(wallet.addr)
+			self.set_addr.add(wallet.addr_lower)
 
 	def _delete_from_sets(self, wallet):
 		""" Deletes wallet from the sets if every field is in sets. Otherwise, throws Exception """
 		if wallet.key() in self.set_keys \
 			and wallet.label in self.set_labels \
-			and wallet.addr in self.set_addr:
+			and wallet.addr_lower in self.set_addr:
 
 			self.set_keys.remove(wallet.key())
 			self.set_labels.remove(wallet.label)
-			self.set_addr.remove(wallet.addr)
+			self.set_addr.remove(wallet.addr_lower)
 		else:
 			raise Exception(text.error_delete_from_set)
 
@@ -184,14 +184,14 @@ class Manager:
 			try:
 				print(text.add_input_private_key)
 				key = input().strip().lower()
-				if not key or key == "exit":
+				if not key:
 					break
 				# If starts not with 0x or length not 66 symbols - tell about mistake
 				if not key.startswith("0x") or len(key) != settings.private_key_length:
 					print(text.add_error_wrong_format)
 					continue
-				elif key in self.set_keys:  		# If exits - tell the label of the wallet
-					label = "Unknown.. tell the devs"
+				elif key in self.set_keys:  			# If exits - tell the label of the wallet
+					label = "Hmmm... unknown.. tell the devs"
 					for wallet in self.wallets:  		# find this wallet
 						if key == wallet.key():  			# if this wallet - same what the user wrote
 							label = wallet.label  			# get the label
@@ -201,8 +201,7 @@ class Manager:
 					label = self.ask_label()  			# ask label
 					wallet = Wallet(key, label)  		# create Wallet
 					self.update_wallet(wallet)  		# update info
-
-					self.add_wallet(wallet)					# add wallet
+					self.add_wallet(wallet)				# add wallet
 					print(f"Successfully added the wallet: {wallet.get_info()}")
 			except Exception as e:
 				# raise Exception(e)
@@ -217,10 +216,10 @@ class Manager:
 				self.update_wallet(wallet)					# get it
 
 			self.wallets.append(wallet)				# add to the list
-			self._add_to_sets(wallet)						# add to the sets
+			self._add_to_sets(wallet)				# add to the sets
 
-	def generate_wallets(self, number=1):
-		if number > 100 or number < 1:
+	def generate_wallets(self, number):
+		if number > settings.max_generate_addr or number < 1:
 			print(text.error_wrong_generate_number)
 		else:
 			# get the list with new generated wallets
@@ -238,55 +237,50 @@ class Manager:
 		""" Realisation of deleting wallets -> certain wallet, last, last N or all
 		If change - be careful with .lower method !!
 		"""
-		while True:
-			try:
-				if not self.wallets:						# If no wallets
-					print(text.del_no_wallets)					# tell about it
-					return										# and return
+		if not self.wallets:  			# If no wallets
+			print(text.del_no_wallets)  # tell about it
+			return  					# and return
 
-				print(text.del_instruction_to_delete_wallet)	# instruction
-				self.print_wallets()  							# print wallets
-				print("---------------------")					# and line
+		try:
+			print(text.del_instruction_to_delete_wallet)	# instruction
+			self.print_wallets()  							# print wallets
+			print("---------------------")					# and line
 
-				line = input().strip()							# parse the input
-				if not line or line.lower() == "exit":
-					return
+			addr = input().strip().lower()
+			if not addr:
+				return
 
-				# Processing the input
-				process_line = line.lower()
-				if process_line == "all":						# delete all
-					self.delete_all()
-				elif process_line.startswith("last"):			# last N
-					if process_line == "last":							# if only last
-						how_many_delete = 1								# it's 1 wallet
-					else:
-						how_many_delete = int(line.split(" ")[1])		# otherwise parse how many
-
-					for _ in range(how_many_delete):					# do N times
-						last_index = len(self.wallets) - 1			# - get last index
-						self.delete_wallet(last_index)					# - delete it
+			# Processing the input
+			if not addr.startswith("last"):						# if not "last.."
+				index = self.get_wallet_index_by_text(addr)  	# - get wallet index
+				self.delete_wallet(index)  						# - delete it
+			else:
+				if addr == "last":					# parse amount to delete
+					amount = 1
 				else:
-					index = self.get_wallet_index_by_text(line)		# else get wallet index
-					self.delete_wallet(index)						# delete it
-			except Exception as e:
-				print(e)
-				print(text.error_something_wrong.format(e))
+					amount = int(addr.split(" ")[1])
 
-	def delete_wallet(self, index):
+				for _ in range(amount):					# do N times
+					last_index = len(self.wallets) - 1	# - get last index
+					self.delete_wallet(last_index)		# - delete it
+		except Exception as e:
+			print(text.error_something_wrong.format(e))
+
+	def delete_wallet(self, index_or_obj):
 		"""
 		Deletes wallet from list and sets by its Index in the list or Wallet obj
-		:param index: wallet Index in the list OR wallet Obj in the list
+		:param index_or_obj: wallet Index in the list OR wallet Obj in the list
 		"""
-		if isinstance(index, Wallet):							# if it's wallet - get it's index
+		if isinstance(index_or_obj, Wallet):							# if it's wallet - get it's index
 			for i in range(len(self.wallets)):
-				if index is self.wallets[i]:
-					index = i
+				if index_or_obj is self.wallets[i]:
+					index_or_obj = i
 					break
 
-		if isinstance(index, int):
-			wallet = self.wallets.pop(index)  				# del from the list
+		if isinstance(index_or_obj, int):
+			wallet = self.wallets.pop(index_or_obj)  				# del from the list
 			self._delete_from_sets(wallet)  						# del from the sets
-			print(text.del_successfully_deleted, wallet.addr)  	# print about success
+			print(text.del_successfully_deleted, wallet.addr)  		# print about success
 			del wallet
 		else:
 			raise TypeError("It's not wallet or index, I don't work with it. Tell the devs")
@@ -330,22 +324,22 @@ class Manager:
 			print(text.error_something_wrong.format(e))
 
 	def update_wallets(self):
-		if self.wallets:
+		if not self.wallets:
+			print(text.upd_text_no_wallets_to_update)
+		else:
 			print(text.upd_text_updating_wallets, end=" ")
 
 			list_daemons = list()
 
-			for wallet in self.wallets:  # for each wallet
-				if threads.can_create_daemon():  # if allowed thread creating
-					thread = threads.start_todo(self.update_wallet, True, wallet)  # start a new thread
-					list_daemons.append(thread)  # add thread to the list
+			for wallet in self.wallets:  											# for each wallet
+				if threads.can_create_daemon():  									# if allowed thread creating
+					thread = threads.start_todo(self.update_wallet, True, wallet)  	# start a new thread
+					list_daemons.append(thread)  									# add thread to the list
 				else:
 					time.sleep(settings.wait_to_create_daemon_again)
 
 			[daemon.join() for daemon in list_daemons if daemon.is_alive()]  # wait will all threads finish
 			print(text.success)
-		else:
-			print(text.upd_text_no_wallets_to_update)
 
 	def print_block_info(self, block_number=None):
 		"""
@@ -421,14 +415,15 @@ class Manager:
 	def delete_txs_history(self):
 		assist.delete_txs_history(self.wallets)
 
-	def get_wallet_by_text(self, text_):
-		"""Returns wallet by address or number (starts from 1)"""
-		index = self.get_wallet_index_by_text(text_)
+	def get_wallet_by_text(self, addr_or_number):
+		"""Returns wallet by address or number (starts from 1)
+		:param addr_or_number: should be lower"""
+		index = self.get_wallet_index_by_text(addr_or_number)
 		return self.wallets[index]
 
 	def get_wallet_index_by_text(self, text_):
 		"""Returns index of the wallet in the list with received text (addr or number)"""
-		return assist.get_wallet_index_by_text(self.wallets, self.set_addr, text_)
+		return assist.get_wallet_index_by_str(self.wallets, self.set_addr, text_)
 
 	def ask_label(self):
 		"""Asks label and checks uniqueness"""

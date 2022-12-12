@@ -8,11 +8,16 @@ from web3 import Web3
 
 class Wallet:
     def __init__(self, private_key, label):
+        """
+        Pay attention to addr and addr_lower. First one with big letters, it should be used to print and
+        send TXs. Second one is used to work with object, compare, search in sets, find etc..
+        """
         self._key = private_key
         self.label = label
 
         self.nonce = int()
-        self.addr = str()
+        self.addr = str()               # - use to print / send TXs (checkSum)
+        self.addr_lower = str()         # - use to compare / find
         self.balance_in_wei = int()
         self.txs = list()               # list with Transaction objects
 
@@ -29,11 +34,12 @@ class Wallet:
     def get_all_info(self):
         line = self.get_info()          # all info
         if self.txs:                    # + all transactions if there are
-            line += " | Transactions:"
+            line += " | TXs:"
             for tx in self.txs:
-                line += "\n\t" + self.get_transaction_info(tx)
+                line += "\n - " + self.get_transaction_info(tx)
+            line += "\n"
         else:
-            line += " -- no transactions"
+            line += " | no tx"
 
         return line
 
@@ -58,7 +64,7 @@ class Wallet:
         link = chain_explorers[tx.chainId] + tx.tx      # get explorer + tx = link
         blockchain = chain_default_token[tx.chainId]
 
-        format_ = "{blockchain} >> {tx_type} {value} {token} {sender_or_receiver} on {date}\n\t\t{status} >>> {link}"
+        format_ = "{blockchain} {status}: {tx_type} {value} {token} {sender_or_receiver} on {date} ({link})"
 
         return format_.format(blockchain=blockchain, tx_type=tx_type, value=tx.get_eth_value(), token=tx.which_token,
                             sender_or_receiver=sender_or_receiver, date=tx_time, status=tx.status, link=link)
@@ -100,22 +106,19 @@ class Transaction:
 
     def __str__(self):
         line = "{blockchain} >> From {sender} sent {amount} {token} to {receiver} on {date}" + \
-               "\n\tStatus {status}, link: "
+               "\n\t{status}, link: {link}"
         blockchain = chain_default_token[self.chainId]
         link = chain_explorers[self.chainId] + self.tx
-        return line.format(blockchain=blockchain,
-                           sender=self.sender,
+        return line.format(blockchain=blockchain, sender=self.sender,
                            amount=Web3.fromWei(self.value, "ether"),
-                           token=self.which_token,
-                           receiver=self.receiver,
-                           date=self.get_time(),
-                           status=self.status) + link
+                           token=self.which_token, receiver=self.receiver,
+                           date=self.get_time(), status=self.status, link=link)
 
-    def __eq__(self, other):            # required for deserialization
-        return self.tx == other.tx
-
-    def __hash__(self):                 # required for deserialization
-        return hash(self.tx)
+    # def __eq__(self, other):            # required for deserialization
+    #     return self.tx == other.tx
+    #
+    # def __hash__(self):                 # required for deserialization
+    #     return hash(self.tx)
 
     def get_eth_value(self):
         return Web3.fromWei(self.value, "ether")

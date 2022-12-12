@@ -99,9 +99,10 @@ def update_wallet(web3, wallet):
 	After that it updates balance and transaction count
 	"""
 	if isinstance(wallet, Wallet):
-		if not wallet.addr:  						# if the wallet doesn't have address
+		if not wallet.addr or not wallet.addr_lower:  					# if the wallet doesn't have address
 			key = wallet.key()  										# get private key
 			wallet.addr = Account.privateKeyToAccount(key).address  	# parse the address and add
+			wallet.addr_lower = wallet.addr.lower()
 
 		wallet.balance_in_wei = web3.eth.get_balance(wallet.addr)  		# update balance
 		wallet.nonce = web3.eth.get_transaction_count(wallet.addr)  	# update nonce
@@ -149,29 +150,30 @@ def generate_wallets(web3, set_labels, set_keys, number) -> list:
 	return new_generated_wallets												# return the list
 
 
-def get_wallet_index_by_text(wallets_list: list, set_addr: set, string) -> int:
+def get_wallet_index_by_str(wallets_list: list, set_addr: set, addr: str) -> int:
 	"""
 	:param wallets_list: list with wallets
 	:param set_addr: set with addresses
-	:param string: address or number of the wallet
+	:param addr: number (starts from 1)
 	:return: Index of selected Wallet in the list
 	"""
 	total_wallets = len(wallets_list)
 
-	if is_number(string):  # get number if it's number
-		number = int(string)
+	if is_number(addr):  # get number if it's number
+		number = int(addr)
 		if number > total_wallets or number < 1:		# if N > wallets in list or < 1
 			raise IndexError("Wrong number")  			# throw IndexError
 		return number - 1  								# if not - return Index
-	elif not string.startswith("0x") or len(string) != settings.address_length:
+	elif not addr.startswith("0x") or len(addr) != settings.address_length:
 		raise Exception(text.error_not_number_or_address)
 	else:
-		if string not in set_addr:  # if there's no such wallet
-			raise Exception(text.error_no_such_address)  # throw error
+		if addr not in set_addr:  							# if there's no such wallet
+			raise Exception(text.error_no_such_address)  	# throw error
 		else:
-			for index in range(total_wallets):  # else find its Index
-				if wallets_list[index].addr == string:
-					return index  # end return
+			addr = addr.lower()
+			for i in range(total_wallets):  		# else find its Index
+				if wallets_list[i].addr_lower == addr:
+					return i  						# end return
 
 
 def delete_txs_history(wallets: list):

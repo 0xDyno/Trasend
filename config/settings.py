@@ -8,6 +8,7 @@ folder = "private/"
 saved_wallets = folder + "saved_wallets"
 saved_txs = folder + "saved_txs"
 crypto_key = folder + "key"
+max_generate_addr = 100
 
 """Daemons"""			#################################################
 update_block_every = 3				# 12 secs for ETH

@@ -15,8 +15,7 @@ Add wallets
 	2		Add
 	2g 		Generate wallets
 Delete wallets
-	3		Delete one wallet (delete last & all here not)
-	3l 		Delete last 		(use 3 for now)
+	3		Delete one wallet
 	3a		Delete all
 	3t		Delete TXs history
 Send transaction (main coin)
@@ -24,7 +23,7 @@ Send transaction (main coin)
 	4e 		Send ERC-20 		(not imp)
 	4a		Send to All wallets (not imp)
 Other functions:
-upd - update wallets | 01 - last block info | 02 - check connection | t - tests | e - exit"""
+upd - update wallets | i or h - call me, instruction | 01 - last block info | 02 - check connection | t - tests | e - exit"""
 
 # Import an acc, add_wallet() method:
 add_input_private_key = "Write your private key:"
@@ -34,11 +33,9 @@ add_error_wrong_already_exist = "Error, this wallet already exist in the system"
 add_ask_label = "Write desired label (or Enter to get random) >>> "
 
 # Delete an acc, remove_wallet() method:
-del_instruction_to_delete_wallet = """3 ways to delete wallets:
-1. Write the address
-2. Write the number
+del_instruction_to_delete_wallet = """To delete a wallet - write it's number or the address
+1. Write the address or its number | 
 3. Write "last N" to delete batch of last wallets. Example - "last 10"
-4. Write "all" to delete all wallets
 List of existed wallets:"""
 del_no_wallets = "No wallets to delete"
 del_successfully_deleted = "The wallet was successfully deleted"
