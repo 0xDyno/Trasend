@@ -21,8 +21,9 @@ Delete wallets
 	3t		Delete all TXs history
 Send transaction (main coin)
 	4		Send native (ETH)
+	4a		Send native to All	(not imp)
 	4e 		Send ERC-20 		(not imp)
-	4a		Send to All wallets (not imp)
+	4ea 	Send ERC-20 to All	(not imp)
 Other functions:
 upd - update wallets | 01 - last block info | 02 - check connection | t - tests | e - exit"""
 
@@ -39,13 +40,13 @@ del_no_wallets = "No wallets to delete"
 del_successfully_deleted = "The wallet was successfully deleted"
 
 # Text to initialize in method __new__:
-new_text_load_wallets = "Working: loading the wallets into the system..."
-new_text_load_txs = "Working: loading the txs into the system..."
+new_text_load_wallets = "Loading the wallets into the system..."
+new_text_load_txs = "Loading the txs into the system..."
 new_text_no_wallets_to_load = "no wallets to load into the system."
 new_text_no_txs_to_load = "no txs to load into the system."
 new_text_no_wallets_to_init = "Init is finished."
 sets_text_init_sets = "Initialize addition system files..."
-upd_text_updating_wallets = "Working: updating the wallets info..."
+upd_text_updating_wallets = "Updating the wallets info..."
 upd_text_no_wallets_to_update = "No wallets to update"
 upd_error_not_wallet = "Not a wallet, can't update, tell the devs >> update_wallet"
 

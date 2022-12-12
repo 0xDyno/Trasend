@@ -1,10 +1,9 @@
 import time
-from decimal import Decimal
 
 from web3 import Web3
 from config import settings
-from services.classes import Wallet, Transaction
-from services import threads
+from services.classes import *
+from services import threads, logs, assist, manager
 
 """
 Helps Manager to work with transactions
@@ -15,9 +14,25 @@ Use send_
 """
 
 
-def pr(text):
-	if settings.print_trans_info:
-		print(f"\n---------\n>>>>>>>>>> {text}\n---------\n")
+def print_price_and_confirm(chain_id, value, receivers: list | set | tuple) -> bool:
+	"""Prints the price for the transaction and ask to confirm before sending """
+	coin = chain_default_coin[chain_id]
+	tx_number = len(receivers)							# get No of TXs will be made
+	gas_price = manager.Manager.gas_price				# get gas price (gwei, but in wei)
+	priority = manager.Manager.max_priority * settings.multiplier_priority 	# and priority
+	fee = (gas_price + priority) * 21000
+
+	total_send = value * tx_number
+	total_fee = fee * tx_number
+
+	total_send = Web3.fromWei(total_send, "ether")
+	total_fee = Web3.fromWei(total_fee, "ether")
+	total = total_fee + total_send
+	ask = f"Amount: {total_send:.3f} {coin}\n" \
+		  f"Fee: {total_fee:.3f} {coin}\n" \
+		  f"Total: {total:.3f} {coin}\n"
+
+	return assist.confirm(print_before=ask)
 
 
 def get_gas(web3: Web3, receiver: Wallet, last_block) -> int:
@@ -33,42 +48,43 @@ def get_gas(web3: Web3, receiver: Wallet, last_block) -> int:
 	return web3.eth.estimate_gas(tx, last_block["number"])
 
 
-def transaction_sender(web3: Web3, sender: Wallet, list_with_receivers: list, value) -> list:
+def transaction_sender(web3: Web3, sender: Wallet, receivers: list | Wallet, value) -> list:
 	"""
 	Sends asset from 1 wallet to N others wallets chosen amount.
 	If Amount = 2 and 20 receivers, then will be sent 2*20 = 40 units
 	:param web3:
 	:param sender:
-	:param list_with_receivers: list with Wallets or Wallet obj
+	:param receivers: list with Wallets or Wallet obj
 	:param value:
 	:return: list with TXs (str)
 	"""
-	if isinstance(list_with_receivers, Wallet):			# if it's Wallet - make list
-		list_with_receivers = [list_with_receivers]		# with 1 Wallet
+	if isinstance(receivers, Wallet):		# if it's Wallet - make list
+		receivers = [receivers]				# with 1 Wallet
 
-	raw_txs_list = list()
-	length = len(list_with_receivers)
+	txs = list()
+	length = len(receivers)
 
 	for i in range(length):				# for each receiver send transaction
-		tx_hash = compose_native_transaction(web3, sender, sender.nonce + i,
-											 	list_with_receivers[i], value)
-		raw_txs_list.append(tx_hash)	# add tx_hash
+		tx = compose_native_transaction(web3, sender, sender.nonce + i,
+											 receivers[i], value)
+		txs.append(tx)					# add tx
 
-	txs_list = add_transactions_to_wallets(web3, sender, list_with_receivers, value, raw_txs_list)
-	return txs_list
+	threads.start_todo(update_txs, True, web3, txs)
+	return txs
 
 
-def compose_native_transaction(web3: Web3, sender: Wallet, nonce, receiver: Wallet, value) -> str:
+def compose_native_transaction(web3: Web3, sender: Wallet, nonce, receiver: Wallet, value) -> Transaction:
 	"""
 	Tries to send transaction with the last ETH updates. But it won't work for networks that didn't update
 	So I wrote also second variant to send transaction
 	:return: transaction hash, string
 	"""
 	max_gas_fee = int(web3.eth.gas_price * settings.multiplier)
-	max_prior_fee = int(web3.eth.max_priority_fee * settings.multiplier)
+	max_prior_fee = int(web3.eth.max_priority_fee * settings.multiplier_priority)
+	chain_id = web3.eth.chain_id
 
 	try:  # Usual way that should work
-		pr("compose_transaction_and_send: try to send transaction #1")
+		logs.pr_trans("compose_transaction_and_send: try to send transaction, type #2")
 		tx = {
 			"from": sender.addr,
 			"to": receiver.addr,
@@ -79,28 +95,30 @@ def compose_native_transaction(web3: Web3, sender: Wallet, nonce, receiver: Wall
 			"data": b'',
 			"nonce": nonce,
 			"type": 2,
-			"chainId": web3.eth.chain_id
+			"chainId": chain_id
 		}
-		return send_native_coin(web3, tx, sender.key())
+		tx_hash = send_native_coin(web3, tx, sender.key())
 	except Exception:
 		# When something wrong (wrong network etc..) - the last try.. can work because some networks
 		# don't have ETH updates and don't support new gas type
-		pr("compose_transaction_and_send: try to send transaction #1 - Fail")
-		pr("compose_transaction_and_send: try to send transaction #2")
+		logs.pr_trans("compose_transaction_and_send: try to send transaction type #2 - Fail")
+		logs.pr_trans("compose_transaction_and_send: try to send transaction no type")
 		tx = {
 			"to": receiver.addr,
 			"nonce": sender.nonce,
 			"gas": 21000,
 			"gasPrice": int(web3.eth.gas_price * settings.multiplier),
 			"value": value,
-			"chainId": web3.eth.chain_id
+			"chainId": chain_id
 		}
-		return send_native_coin(web3, tx, sender.key())
+		tx_hash = send_native_coin(web3, tx, sender.key())
 	finally:
-		pr("compose_transaction_and_send: successfully transaction")
+		logs.pr_trans("compose_transaction_and_send: successfully sent")
+
+	return Transaction(chain_id, time.time(), receiver, sender, value, tx_hash)
 
 
-def send_native_coin(web3: Web3, tx: dict, key) -> str or None:
+def send_native_coin(web3: Web3, tx: dict, key) -> str:
 	"""
 	Sends transaction when sends only native coins (ETH, BNB etc)
 	:param web3: Web3 obj
@@ -108,29 +126,11 @@ def send_native_coin(web3: Web3, tx: dict, key) -> str or None:
 	:param key:
 	:return: transaction hash or None if failed
 	"""
-
-	pr("send_native_coin: try to send a transaction")
+	logs.pr_trans("send_native_coin: try to send a transaction", end=" ")
 	signed_tx = web3.eth.account.sign_transaction(tx, key)				# sing
 	tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)	# send
-	pr("send_native_coin: successfully sent the transaction")
+	logs.pr_trans("send_native_coin: successfully sent the transaction")
 	return web3.toHex(tx_hash)											# return TX
-
-
-def add_transactions_to_wallets(web3: Web3, sender: Wallet, receivers_list: list,
-								value: str, raw_txs_list: list):
-	"""
-	Create a Transaction obj and add it to sender and received
-	Start a daemon to update all TXs
-	:return: list with TX objects
-	"""
-	txs_list = list()
-	for tx_text in raw_txs_list:				# for each transaction
-		for receiver in receivers_list:			# and for each receiver
-			tx = Transaction(web3.eth.chain_id, time.time(), receiver, sender, value, tx_text)
-			txs_list.append(tx)					# create tx and add it
-												# then start a daemon to update them all
-	threads.start_todo(update_txs, True, web3, txs_list)
-	return txs_list
 
 
 def update_txs(web3: Web3, txs_list: list):
@@ -143,7 +143,7 @@ def update_txs(web3: Web3, txs_list: list):
 
 def update_tx(web3: Web3, tx: Transaction):
 	if tx.status is None:										# if no status
-		receipt = web3.eth.waitForTransactionReceipt(tx.tx)		# wait for the result
+		receipt = web3.eth.wait_for_transaction_receipt(tx.tx)  # wait for the result
 		if receipt["status"] == 0:								# and change it
 			tx.status = "Fail"
 		else:

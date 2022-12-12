@@ -9,12 +9,6 @@ __ But I don't know how to do it....... :(
 """
 
 
-def pr(text):
-	"""Prints "logs" / info if flas is True. Only for thread-related logs"""
-	if settings.print_daemons_info:
-		print(text)
-
-
 def can_create_daemon():
 	"""Returns True if total threads < than max threads.
 	Made to limit connections to RPC"""

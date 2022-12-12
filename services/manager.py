@@ -1,7 +1,7 @@
 # Import my files
 from config import texts, settings
 from services.classes import Wallet
-from services import assist, trans, threads
+from services import assist, trans, threads, logs
 
 # Import third-party files
 from web3 import Web3
@@ -30,6 +30,8 @@ class Manager:
 	"""
 	__singleton = None
 	all_txs = set()
+	gas_price = None
+	max_priority = None
 
 ###################################################################################################
 # Initialization ##################################################################################
@@ -38,7 +40,7 @@ class Manager:
 	def new_connection(self, connection: Web3):
 		assist.is_web3(connection)
 		self.web3 = connection
-		self.chainId = self.web3.eth.chain_id
+		self.chain_id = self.web3.eth.chain_id
 
 	def __new__(cls, *args, **kwargs):
 		if cls.__singleton is None:
@@ -60,7 +62,7 @@ class Manager:
 
 			# Main params:
 			self.web3 = assist.is_web3(connection)
-			self.chainId = self.web3.eth.chain_id
+			self.chain_id = self.web3.eth.chain_id
 
 			self.wallets = list()
 			self.set_keys = set()
@@ -75,11 +77,14 @@ class Manager:
 			if not self.wallets:
 				print(texts.new_text_no_wallets_to_init)
 			else:
+				print(texts.sets_text_init_sets, end=" ")
 				self.update_wallets()
-				self._initialize_sets()
+				self._initialize_txs()
+				print(texts.success)
 
 			# Start a demon to regularly update info (last block)
-			self.daemon_update_lb = threads.start_todo(self._daemon_update_last_block, True)
+			threads.start_todo(self._daemon_update_last_block, True)
+			threads.start_todo(self._daemon_update_gas, True)
 		else:
 			print(f"Connection status: {self.web3.isConnected()}")
 
@@ -87,12 +92,11 @@ class Manager:
 # Inner methods ###################################################################################
 ###################################################################################################
 
-	def _initialize_sets(self):
-		"""Init sets with wallet info"""
-		print(texts.sets_text_init_sets, end=" ")
-		for wallet in self.wallets:  # for each wallet
-			self._add_to_sets(wallet)  # add to sets
-		print(texts.success)
+	def _initialize_txs(self):
+		"""From all_tx init wallets with related tx
+		(if this wallet related to tx - adds tx into wallet's list)"""
+		for wallet in self.wallets:
+			assist.update_txs_for_wallet(wallet)
 
 	def _add_to_sets(self, wallet):
 		"""Adds new wallet to sets if there's no such wallet.
@@ -126,7 +130,7 @@ class Manager:
 			raise TypeError("I can add only wallet and that's not wallet. Tell the devs")
 		else:
 			if not wallet.addr:								# if no addr
-				self.update_wallet(wallet)					# get it
+				self.update_wallet(wallet, True)			# get it
 
 			self.wallets.append(wallet)				# add to the list
 			self._add_to_sets(wallet)				# add to the sets
@@ -190,13 +194,18 @@ class Manager:
 				return False
 
 	def _daemon_update_last_block(self):
-		"""
-		The daemon updates block even N time (wrote in settings.update_block_every)
-		"""
+		"""Daemon updates block even N secs"""
 		while True:
 			self.update_last_block()  # update
 			time.sleep(settings.update_block_every)  # sleep
-			threads.pr(f"Daemon, updated the last block, current block is {self.last_block['number']}")
+			logs.pr_daemon(f"Daemon, updated the last block, current block is {self.last_block['number']}")
+
+	def _daemon_update_gas(self):
+		"""Daemin updates gas price & max priority every N secs"""
+		while True:
+			Manager.gas_price = self.web3.eth.gas_price
+			Manager.max_priority = self.web3.eth.max_priority_fee
+			time.sleep(settings.update_gas_every)
 
 	def _save_wallets(self):
 		assist.save_data(self.wallets, settings.folder, settings.saved_wallets)
@@ -237,12 +246,12 @@ class Manager:
 					wallet = Wallet(key)  					# create Wallet
 
 					if threads.can_create_daemon():
-						thread = threads.start_todo(self.update_wallet, True, wallet)
+						thread = threads.start_todo(self.update_wallet, True, wallet, True)
 						wallet.label = self.ask_label()		# ask label
 						thread.join()
 					else:
 						wallet.label = self.ask_label()  	# ask label
-						self.update_wallet(wallet)  		# update info
+						self.update_wallet(wallet, True)  	# update info
 
 					self._add_wallet(wallet)					# add wallet
 					print(f"Successfully added the wallet: {wallet}")
@@ -299,9 +308,9 @@ class Manager:
 
 	def try_send_transaction(self):
 		try:
-			if not self.wallets: 	 	# If no wallets
-				print(texts.text_no_wallets)  # tell about it
-				return  					# and return
+			if not self.wallets: 	 			# If no wallets
+				print(texts.text_no_wallets)  	# tell about it
+				return  						# and return
 
 			print("All wallets: ")  					# instruction
 			self.print_wallets()  						# print wallets
@@ -316,9 +325,7 @@ class Manager:
 			print("Write amount:")
 			amount = self.web3.toWei(input(), "ether")
 
-			if daemon.is_alive():
-				daemon.join()
-
+			daemon.join()
 			txs_list: list = trans.transaction_sender(self.web3, sender, receiver, amount)
 
 			[Manager.all_txs.add(tx) for tx in txs_list if tx not in Manager.all_txs]			# add tx
@@ -327,23 +334,34 @@ class Manager:
 		except Exception as e:
 			print(texts.error_something_wrong.format(e))
 
-	def update_wallets(self):
-		if not self.wallets:
-			print(texts.upd_text_no_wallets_to_update)
-		else:
-			print(texts.upd_text_updating_wallets, end=" ")
+	def try_send_to_all(self):
+		sender_raw = self.print_and_ask(after="From which wallet to send?")		# get input
+		sender_index = self.get_wallet_index_by_text(sender_raw)				# get sender index
 
+		receivers = self.wallets.copy()											# copy all list
+		sender = receivers.pop(sender_index)									# get sender and delete from list
+		daemon = threads.start_todo(self.update_wallet, True, sender)			# start daemon to update sender info
+
+		amount = self.web3.toWei(input("How much send to each: "), "ether")
+
+		if trans.print_price_and_confirm(self.web3.eth.chain_id, value=amount, receivers=receivers):
+			daemon.join()
+			txs = trans.transaction_sender(self.web3, sender, receivers, amount)	# send txs
+			[Manager.all_txs.add(tx) for tx in txs if tx not in Manager.all_txs]	# add to lis
+			[print(tx) for tx in txs]
+
+	def update_wallets(self):
+		if self.wallets:
 			list_daemons = list()
 
-			for wallet in self.wallets:  											# for each wallet
-				if threads.can_create_daemon():  									# if allowed thread creating
-					thread = threads.start_todo(self.update_wallet, True, wallet)  	# start a new thread
-					list_daemons.append(thread)  									# add thread to the list
+			for wallet in self.wallets:  			# for each wallet
+				if threads.can_create_daemon():  	# if allowed thread creating - start a new thread
+					thread = threads.start_todo(self.update_wallet, True, wallet, True)
+					list_daemons.append(thread)  	# add thread to the list
 				else:
 					time.sleep(settings.wait_to_create_daemon_again)
 
 			[daemon.join() for daemon in list_daemons if daemon.is_alive()]  	# wait will all threads finish
-			print(texts.success)
 
 	def print_block_info(self, block_number=None):
 		"""
@@ -405,7 +423,7 @@ class Manager:
 			print(texts.text_no_wallets)
 
 	def print_all_txs(self):
-		"""Prints all TXs with current network (chainId)"""
+		"""Prints all TXs with current network (chain_id)"""
 		if Manager.all_txs:
 			assist.print_all_txs(self.web3)
 		else:
@@ -425,10 +443,10 @@ class Manager:
 
 		return input().strip().lower()
 
-	def update_wallet(self, wallet):
+	def update_wallet(self, wallet, update_tx=False):
 		"""Updates wallet balance & nonce, adds addr if wallet doesn't have it.
 		Updates TXs in the wallet list which doesn't have status (Success/Fail)"""
-		assist.update_wallet(self.web3, wallet, self.set_labels)
+		assist.update_wallet(self.web3, wallet, self.set_labels, update_tx)
 
 	def delete_txs_history(self):
 		assist.delete_txs_history(self.wallets)
@@ -439,13 +457,13 @@ class Manager:
 		wallet = self.get_wallet_by_text(text)							# gets wallet from str
 		assist.print_txs_for_wallet(self.web3.eth.chain_id, wallet)		# prints txs for that wallet in the network
 
-	def get_wallet_by_text(self, addr_or_number):
+	def get_wallet_by_text(self, addr_or_number) -> Wallet:
 		"""Returns wallet by address or number (starts from 1)
 		:param addr_or_number: should be lower"""
 		index = self.get_wallet_index_by_text(addr_or_number)
 		return self.wallets[index]
 
-	def get_wallet_index_by_text(self, text):
+	def get_wallet_index_by_text(self, text) -> int:
 		"""Returns index of the wallet in the list with received text (addr or number)"""
 		return assist.get_wallet_index_by_str(self.wallets, self.set_addr, text)
 

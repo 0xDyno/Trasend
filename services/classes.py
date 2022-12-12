@@ -2,7 +2,7 @@ from datetime import datetime
 import webbrowser
 
 from config import texts
-from config.settings import chain_explorers, chain_default_token, chain_name
+from config.settings import chain_explorers, chain_default_coin, chain_name
 from web3 import Web3
 
 
@@ -34,7 +34,7 @@ class Wallet:
             line += " | TXs:"
             for tx in self.txs:
                 line += "\n - " + self.get_transaction_info(tx)
-            line += "\n"
+            # line += "\n"
         else:
             line += " | no tx"
 
@@ -58,8 +58,8 @@ class Wallet:
             sender_or_receiver = "from " + tx.sender
         else:
             sender_or_receiver = "to " + tx.receiver
-        link = chain_explorers[tx.chainId] + tx.tx      # get explorer + tx = link
-        blockchain = chain_name[tx.chainId]
+        link = chain_explorers[tx.chain_id] + tx.tx      # get explorer + tx = link
+        blockchain = chain_name[tx.chain_id]
 
         format_ = "({blockchain}) {status}: {tx_type} {value} {token} {sender_or_receiver} on {date} ({link})"
 
@@ -70,10 +70,9 @@ class Wallet:
 class Transaction:
 
 
-    def __init__(self, chainId: int, time: float, receiver: Wallet,
+    def __init__(self, chain_id: int, time: float, receiver: Wallet,
                  sender: Wallet, value: str, tx: str, token=None):
-        """
-        :param chainId: chainId
+        """>:param chain_id: chain_id
         :param time: usual time is secs
         :param receiver: addr str
         :param sender: addr str
@@ -81,7 +80,7 @@ class Transaction:
         :param tx: tx_hash text
         :param token: Ticker of smart-contract, None if default network (ETH, BNB, MATIC etc)
         """
-        self.chainId = chainId                          #_1
+        self.chain_id = chain_id                        #_1
         self.date = datetime.fromtimestamp(time)        #_2 -- datetime
         self.status = None                              #_3 -- Success / Fail / None
         self.receiver = receiver.addr                   #_4 to
@@ -90,7 +89,7 @@ class Transaction:
         self.which_token = bool                         #_7 Main token or TokenTicket
         self.tx = tx                                    #_8 transaction hash
         if token is None:
-            self.which_token = chain_default_token[chainId]
+            self.which_token = chain_default_coin[chain_id]
         else:
             self.which_token = token
 
@@ -102,12 +101,12 @@ class Transaction:
         sender.txs.append(self)
 
     def __str__(self):
-        return chain_name[self.chainId] + " >> " + self.str_no_bc()
+        return chain_name[self.chain_id] + " >> " + self.str_no_bc()
 
     def str_no_bc(self):
         """Returns text with no BlockChain info"""
         string = "From {sender} sent {amount} {token} to {receiver} on {date}\n\t\t{status}, link: {link}"
-        link = chain_explorers[self.chainId] + self.tx
+        link = chain_explorers[self.chain_id] + self.tx
         return string.format(sender=self.sender, amount=Web3.fromWei(self.value, "ether"), token=self.which_token,
                            receiver=self.receiver, date=self.get_time(), status=self.status, link=link)
 
@@ -125,4 +124,4 @@ class Transaction:
         return str(datetime.strftime(self.date, "%d.%m.%Y %H:%M:%S"))
 
     def open_explorer(self):
-        webbrowser.open(chain_explorers[self.chainId] + self.tx)
+        webbrowser.open(chain_explorers[self.chain_id] + self.tx)

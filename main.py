@@ -12,7 +12,7 @@ from web3 import Web3
 def main():
     print("\n%s\n---------------------" % main_text_instruction)
     while True:
-        text = input().lower()
+        text = input().lower().strip()
         match text:
             case "1":                                                                       # Show all wallets
                 m.print_wallets()
@@ -40,21 +40,15 @@ def main():
                 if assist.confirm():
                     m.delete_txs_history()
                     print(success)
-            case "4":                                                                       # Send transaction (main co)
+            case "4":                                                                       # Send transaction (native)
                 m.try_send_transaction()
-            case "4all":                                # to implement Send to All wallets
-                pass
+            case "4a":                                                                      # Send to All (native)
+                m.try_send_to_all()
             case "4e":                                  # to implement Send ERC-20
                 pass
+            case "4ea":                                 # to implement Send ETC-20 to All
+                pass
             case "5":                                                                       # empty
-                pass
-            case "6":                                                                       # empty
-                pass
-            case "7":                                                                       # empty
-                pass
-            case "8":                                                                       # empty
-                pass
-            case "9":                                                                       # empty
                 pass
             case "upd":                                                                     # last block info
                 m.update_wallets()
@@ -72,10 +66,10 @@ def main():
                 break
             case "e":
                 break
-            case "i":
+            case "h":
                 print("\n%s\n---------------------" % main_text_instruction)
             case _:
-                print("Wrong command. If you need instruction - print i")
+                print("Wrong command. If you need instruction - print h")
 
 
 if __name__ == "__main__":

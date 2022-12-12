@@ -18,8 +18,11 @@ Not important methods/functions which doesn't work with data directly will be he
 """
 
 
-def confirm():
-	return input("Are you sure? Write \"y\" to confirm: ").lower() == "y"
+def confirm(print_before=None):
+	if print_before is not None:
+		print(print_before)
+	return input("Are you sure? Write \"y\" to confirm: ").lower().strip() == "y"
+
 
 
 def is_number(e: str) -> bool:
@@ -63,19 +66,19 @@ def print_all_info(list_with_wallets):
 
 def print_all_txs(web3: Web3):
 	"""Prints all TXs with current network (chainId)"""
-	chainId = web3.eth.chain_id
+	chain_id = web3.eth.chain_id
 	for tx in manager.Manager.all_txs:		# prints all TXs
-		if chainId == tx.chainId:					# with current network
+		if chain_id == tx.chain_id:					# with current network
 			print(tx)
 
 
-def print_txs_for_wallet(chainId: int, wallet: Wallet):
+def print_txs_for_wallet(chain_id: int, wallet: Wallet):
 	"""Prints wallet all txs for the wallet in given network"""
-	print(settings.chain_name[chainId] + " | " + wallet.__str__())
+	print(settings.chain_name[chain_id] + " | " + wallet.__str__())
 	update_txs_for_wallet(wallet)
 
 	for tx in wallet.txs:
-		if tx.chainId == chainId:
+		if tx.chain_id == chain_id:
 			print("\t" + tx.str_no_bc())
 
 
@@ -103,7 +106,7 @@ def ask_label(set_with_labels):
 			return label
 
 
-def update_wallet(web3: Web3, wallet: Wallet, set_labels: set):
+def update_wallet(web3: Web3, wallet: Wallet, set_labels: set, update_tx=False):
 	"""
 	Receives Wallet. If the wallet doesn't have an address - method parses it and adds
 	After that it updates balance and transaction count
@@ -120,8 +123,9 @@ def update_wallet(web3: Web3, wallet: Wallet, set_labels: set):
 		wallet.balance_in_wei = web3.eth.get_balance(wallet.addr)  		# update balance
 		wallet.nonce = web3.eth.get_transaction_count(wallet.addr)  	# update nonce
 
-		update_txs_for_wallet(wallet)		# updates txs list and each tx if status == None
-		[trans.update_tx(web3, tx) for tx in wallet.txs if tx.status is None]
+		if update_tx:
+			update_txs_for_wallet(wallet)  # updates txs list and each tx if status == None
+			[trans.update_tx(web3, tx) for tx in wallet.txs if tx.status is None]
 	else:
 		print(texts.upd_error_not_wallet)
 
@@ -196,9 +200,14 @@ def delete_txs_history(wallets: list):
 
 
 def update_txs_for_wallet(wallet):
-	for tx in manager.Manager.all_txs:
-		if (wallet.addr == tx.receiver or wallet.addr == tx.sender) and tx not in wallet.txs:
-			wallet.txs.append(tx)
+	if wallet.txs:							# skip 1 check on each iteration if there are no txs at all
+		for tx in manager.Manager.all_txs:
+			if (wallet.addr == tx.receiver or wallet.addr == tx.sender) and tx not in wallet.txs:
+				wallet.txs.append(tx)
+	else:
+		for tx in manager.Manager.all_txs:
+			if wallet.addr == tx.receiver or wallet.addr == tx.sender:
+				wallet.txs.append(tx)
 
 
 def check_saveloads_files(folder: str, path_to_file: str):
