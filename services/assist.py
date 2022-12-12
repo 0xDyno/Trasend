@@ -93,7 +93,7 @@ def ask_label(set_with_labels):
 			return label
 
 
-def update_wallet(web3, wallet):
+def update_wallet(web3: Web3, wallet: Wallet, set_labels: set):
 	"""
 	Receives Wallet. If the wallet doesn't have an address - method parses it and adds
 	After that it updates balance and transaction count
@@ -103,6 +103,9 @@ def update_wallet(web3, wallet):
 			key = wallet.key()  										# get private key
 			wallet.addr = Account.privateKeyToAccount(key).address  	# parse the address and add
 			wallet.addr_lower = wallet.addr.lower()
+
+		if wallet.label is None:
+			wallet.label = generate_label(set_labels)
 
 		wallet.balance_in_wei = web3.eth.get_balance(wallet.addr)  		# update balance
 		wallet.nonce = web3.eth.get_transaction_count(wallet.addr)  	# update nonce
@@ -120,7 +123,7 @@ def generate_wallet(web3, set_labels, set_keys, result_list):
 	if key not in set_keys:  					# check we don't have it
 		label = generate_label(set_labels)  	# generate unique label
 		wallet = Wallet(key, label)  			# create wallet
-		update_wallet(web3, wallet)				# update it
+		update_wallet(web3, wallet, set_labels)		# update it
 
 		result_list.append(wallet)				# save it
 

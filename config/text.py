@@ -7,7 +7,7 @@ File With Texts
 
 """For Main"""			#################################################
 main_text_instruction = """Print number:
-Show:
+Show
 	1 		Wallets
 	1a 		Wallets + transactions
 	1t		Transactions
@@ -15,15 +15,15 @@ Add wallets
 	2		Add
 	2g 		Generate wallets
 Delete wallets
-	3		Delete one wallet
-	3a		Delete all
-	3t		Delete TXs history
+	3		Delete wallets
+	3a		Delete all wallets
+	3t		Delete all TXs history
 Send transaction (main coin)
 	4		Send native (ETH)
 	4e 		Send ERC-20 		(not imp)
 	4a		Send to All wallets (not imp)
 Other functions:
-upd - update wallets | i or h - call me, instruction | 01 - last block info | 02 - check connection | t - tests | e - exit"""
+upd - update wallets | 01 - last block info | 02 - check connection | t - tests | e - exit"""
 
 # Import an acc, add_wallet() method:
 add_input_private_key = "Write your private key:"
@@ -33,9 +33,7 @@ add_error_wrong_already_exist = "Error, this wallet already exist in the system"
 add_ask_label = "Write desired label (or Enter to get random) >>> "
 
 # Delete an acc, remove_wallet() method:
-del_instruction_to_delete_wallet = """To delete a wallet - write it's number or the address
-1. Write the address or its number | 
-3. Write "last N" to delete batch of last wallets. Example - "last 10"
+del_instruction_to_delete_wallet = """To delete a wallet - write it's number or the address. To delete batch write "last N" or "first N"
 List of existed wallets:"""
 del_no_wallets = "No wallets to delete"
 del_successfully_deleted = "The wallet was successfully deleted"

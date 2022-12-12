@@ -68,6 +68,8 @@ def main():
                 break
             case "i":
                 print("\n%s\n---------------------" % main_text_instruction)
+            case "":
+                print("If you need the instruction - press i")
             case _:
                 print("Wrong command. Try again.")
 

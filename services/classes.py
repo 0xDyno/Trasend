@@ -7,7 +7,7 @@ from web3 import Web3
 
 
 class Wallet:
-    def __init__(self, private_key, label):
+    def __init__(self, private_key, label=None):
         """
         Pay attention to addr and addr_lower. First one with big letters, it should be used to print and
         send TXs. Second one is used to work with object, compare, search in sets, find etc..
