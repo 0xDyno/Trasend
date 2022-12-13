@@ -150,19 +150,15 @@ def generate_wallets(w3, set_labels, set_keys, number) -> list:
 	new_generated_wallets = list()
 	list_daemons = list()
 	print(f"Started the generation {number} wallets. Progress bar: ")
-
-	for _ in range(number):					# Do N times
-		if threads.can_create_daemon():		# If we can create daemon - do it
-			daemon = threads.start_todo(generate_wallet, False,  # create daemon
-										w3, set_labels, set_keys, new_generated_wallets)		# to do generate_wallet()
-			list_daemons.append(daemon)											# add to the list
-		else:								# If we can't create - sleep and wait
+	for _ in range(number):
+		while not threads.can_create_daemon():		# If we can create daemon - sleep
 			create_progress_bar(len(new_generated_wallets), number)
 			time.sleep(settings.wait_to_create_daemon_again)
 
-	[daemon.join() for daemon in list_daemons if daemon.is_alive()]				# wait till they finish
-	print(" Finished")															# print &
-	return new_generated_wallets												# return the list
+		daemon = threads.start_todo(generate_wallet, False, w3, set_labels, set_keys, new_generated_wallets)
+		list_daemons.append(daemon)										# add to the list
+	[daemon.join() for daemon in list_daemons if daemon.is_alive()]		# wait till they finish
+	return new_generated_wallets										# return the list
 
 
 def get_wallet_index_from_input(wallets_list: list, set_addr: set, set_labels: set, line: str) -> int:
@@ -288,15 +284,19 @@ def load_data(folder, filepath):
 def create_progress_bar(current, finish):
 	"""Just "progress bar" """
 	step = 1.005
-	while finish > 100:				# equalize to 100 max
+	while finish > 80:				# equalize to 100 max
 		finish = finish / step
 		current = current / step
-	while finish < 100:
+	while finish < 80:
 		finish = finish * step
 		current = current * step
-	finish = int(finish - current)
 	current = int(current)
+	finish = 80 - current
 
-	print(f"({current}% / 100%)", end="  ")
 	print("." * current, end="")
-	print(" " * finish)
+	print(" " * finish, end="")
+	current = int(current * 1.26)
+	if current < 10:
+		print(f" | ( {current}% / 100%)")
+	else:
+		print(f" | ({current}% / 100%)")

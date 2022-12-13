@@ -27,7 +27,7 @@ def main():
                 case "2":                                                                   # Add wallets
                     m.try_add_wallet()
                 case "2g":                                                                  # Generate wallets
-                    number = input(f"How many wallets generate?\n>>>")
+                    number = input(f"How many wallets generate?\n>>>  ")
                     if number.isnumeric():
                         m.generate_wallets(int(number))
                     else:
