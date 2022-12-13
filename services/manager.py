@@ -245,13 +245,14 @@ class Manager:
 	def try_add_wallet(self):
 		"""Parses line and adds a wallet by private key"""
 		while True:
-			print(texts.add_input_private_key)
+			print(texts.input_private_key)
 			key = input().strip().lower()
 			if not key:
+				print(texts.exited)
 				break
 			# If starts not with 0x or length not 66 symbols - tell about mistake
 			if not key.startswith("0x") or len(key) != settings.private_key_length:
-				print(texts.add_error_wrong_format)
+				print(texts.error_not_private_key)
 				continue
 			elif key in self.set_keys:  			# If exits - tell the label of the wallet
 				label = "Hmmm... unknown.. tell the devs"
@@ -287,8 +288,8 @@ class Manager:
 			# add it to our list
 			[self._add_wallet(wallet) for wallet in new_generated_wallets]
 
-			print("Generated wallets: ", len(new_generated_wallets))				# print generated wallets info
 			[print(wallet.addr, wallet.key()) for wallet in new_generated_wallets]
+			print("Generated wallets:", len(new_generated_wallets))				# print generated wallets info
 
 	def try_delete_wallet(self):
 		""" Realisation of deleting wallets -> certain wallet, last, last N or all
@@ -299,6 +300,7 @@ class Manager:
 		print(texts.del_instruction_to_delete_wallet)			# instruction
 		addr = self.print_and_ask(text_before="List of existed wallets:")
 		if not addr:
+			print(texts.exited)
 			return
 
 		# Processing the input

@@ -9,8 +9,10 @@ saved_wallets = folder + "saved_wallets"
 saved_txs = folder + "saved_txs"
 crypto_key = folder + "key"
 max_generate_addr = 999
-max_accounts = 999
-min_label_length = 4		# Attention!! The program will not work property if length is less, than 4 !!
+max_accounts = 999			# Shouldn't be more, or increase min_label_length
+min_label_length = 4		# Attention!! The program works property ONLY if length is less, than 4 !!
+max_label_length = 20		# Shouldn't be more, than 42
+label_gen_length = 8
 
 """Daemons"""			#################################################
 print_daemons_info = False			# prints info from daemons

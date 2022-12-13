@@ -75,25 +75,34 @@ def print_txs_for_wallet(chain_id: int, wallet: Wallet):
 
 
 def generate_label(set_with_labels):
+	"""Generates unique label from numbers in defined length from settings"""
 	while True:
-		number = int(random() * 10**8)			# generate number
-		if number >= 10000000:						# if it's >= 10000
+		number = int(random() * 10 ** settings.label_gen_length)	# it works..
+		if number >= 10 ** (settings.label_gen_length - 1):
 			label = str(number)
 			if label not in set_with_labels:	# check it's unique
 				return label					# return
 
 
-def ask_label(set_with_labels):
+def ask_label(set_with_labels: set):
+	min_ = settings.min_label_length
+	max_ = settings.max_label_length
 	while True:
-		label = input(texts.add_ask_label).strip()
-		if not label:								# If empty - generate 5 digits number
+		label = input(texts.ask_label).strip()
+		if not label:									# If empty - generate number
 			return generate_label(set_with_labels)
+		elif label.lower() == "exit":  					# If "exit" - exit
+			raise InterruptedError(texts.exited)
+		elif len(label) > max_ or len(label) < min_:	# If length < min or > than max
+			print(texts.label_wrong_length.format(min_, max_, len(label)))
+			continue
 
-		if label.lower() == "exit":  				# If not empty - check if "exit"
-			raise InterruptedError("Exited while tried to write the label")
+		if not label.replace(" ", "").replace("_", "").isalnum():
+			print(texts.label_wrong_letters)
+			continue
 
 		if label in set_with_labels:  			# Then check if the label exist
-			print("This label is exist. Try another")
+			print(texts.label_exist)
 		else:  										# if not - return it
 			return label
 

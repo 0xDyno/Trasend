@@ -1,4 +1,4 @@
-from config.settings import private_key_length
+from config.settings import private_key_length, min_label_length, max_label_length
 
 """ 
 File With Texts
@@ -28,11 +28,15 @@ Other functions:
 upd - update wallets | 01 - last block info | 02 - check connection | 03 - gas info | t - tests | e - exit"""
 
 # Import an acc, add_wallet() method:
-add_input_private_key = "Write your private key:"
-add_error_wrong_format = f"Error, it isn't private key. " \
+input_private_key = "Write your private key:"
+error_not_private_key = f"\tError, it isn't private key. " \
 						 f"Key should start with 0x and Length should be {str(private_key_length)}"
-add_error_wrong_already_exist = "Error, this wallet already exist in the system"
-add_ask_label = "Write desired label (or Enter to get random) >>> "
+error_wallet_exist = "\tError, this wallet already exist in the system"
+ask_label = f"Only letters and numbers, min length = {min_label_length}, max length = {max_label_length}. " \
+			"Leave empty to get random.\nWrite desired label >>> "
+label_wrong_length = "\tWrong length, should be from {} to {}, got {}."
+label_wrong_letters = "\tOnly letters, number, spaces and underline '_', no !.,*@&#)!%"
+label_exist = "\tThis label exists in the system."
 
 # Delete an acc, remove_wallet() method:
 del_instruction_to_delete_wallet = "To delete a wallet - write it's number or the address. " \
@@ -70,3 +74,4 @@ error_no_info_about_last_block = "No info about the last block"
 error_something_wrong = "Something wrong, mistake: {}\nTry again.\n\n"
 success = "success"
 fail = "fail"
+exited = "Exited to main menu"
