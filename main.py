@@ -73,6 +73,7 @@ def main():
                     [print(key, end=" ") for key in m.set_keys]
                     print("\nLabels:")
                     [print(label, end=" ") for label in m.set_labels]
+                    print("\n")
                 case "exit":
                     break
                 case "e":
@@ -80,7 +81,7 @@ def main():
                 case "h":
                     print("\n%s\n---------------------" % texts.instruction_main)
                 case _:
-                    print("Wrong command. If you need instruction - print h")
+                    print(texts.wrong_command_main)
         except (AssertionError, TypeError, IndexError, InterruptedError) as e:
             print(e)
         except KeyboardInterrupt:
@@ -89,7 +90,7 @@ def main():
 
 
 if __name__ == "__main__":
-    print("Trying to connect RPC point (node)...", end=" ")
+    print(texts.trying_connect, end=" ")
     connection = Web3(Web3.HTTPProvider(HTTPS_GOERLI))
     print(texts.success)
     m = Manager(connection)

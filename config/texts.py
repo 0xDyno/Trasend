@@ -21,6 +21,7 @@ Send transaction (main coin)
 	4ea 	Send ERC-20 to All	(not imp)
 Other functions:
 upd - update wallets | 01 - last block info | 02 - check connection | 03 - gas info | t - tests | e - exit"""
+wrong_command_main = "Wrong command. If you need instruction - print h"
 
 # General
 no_wallets = "No wallets"
@@ -28,6 +29,8 @@ no_txs = "No TXs"
 exited = "\tExited to main menu"
 success = "Success"
 fail = "Fail"
+
+trying_connect = "Trying to connect RPC point (node)..."
 
 # Text to initialize in method __new__:
 loading_wallets = "Loading the wallets into the system..."

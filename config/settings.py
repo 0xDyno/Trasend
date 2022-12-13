@@ -19,7 +19,7 @@ label_gen_length = 8
 print_daemons_info = False			# prints info from daemons
 update_block_every = 3				# 12 secs for ETH
 update_gas_every = 3				#
-max_threads_per_time = 25			# not more than N threads
+max_threads_per_time = 20			# not more than N threads
 wait_to_create_daemon_again = 1		# If no free place to create a daemon - it will wait that time before try again
 
 """Transactions"""		#################################################

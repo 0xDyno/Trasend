@@ -149,7 +149,7 @@ def generate_wallets(w3, set_labels, set_keys, number) -> list:
 	"""
 	new_generated_wallets = list()
 	list_daemons = list()
-	print(f"Started the generation {number} wallets. Progress bar: ", end="")
+	print(f"Started the generation {number} wallets. Progress bar: ")
 
 	for _ in range(number):					# Do N times
 		if threads.can_create_daemon():		# If we can create daemon - do it
@@ -287,18 +287,16 @@ def load_data(folder, filepath):
 
 def create_progress_bar(current, finish):
 	"""Just "progress bar" """
-	step = 1.01
+	step = 1.005
 	while finish > 100:				# equalize to 100 max
 		finish = finish / step
 		current = current / step
 	while finish < 100:
 		finish = finish * step
 		current = current * step
+	finish = int(finish - current)
 	current = int(current)
-	finish = int(finish)
 
-	for _ in range(current):		# print it
-		print("#", end=" ")
-	for _ in range(finish):
-		print("..", end="")
-	print(f"# ({current}% / 100%)")
+	print(f"({current:.2}% / 100%)", end="  ")
+	print("." * current, end="")
+	print(" " * finish)
