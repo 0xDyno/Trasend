@@ -38,14 +38,6 @@ def is_number(e: str) -> bool:
 		return False
 
 
-def is_web3(connection):
-	"""Checks and return the connection if it's Web3. Otherwise, throws an error"""
-	if not isinstance(connection, Web3):
-		raise TypeError("Can't create Manager because got wrong Connection type. "
-						f"Should be {Web3} object, got: {connection}")
-	return connection
-
-
 def get_fernet_key():
 	with open(settings.crypto_key, "rb") as r:
 		return r.read()
@@ -65,9 +57,8 @@ def print_all_info(list_with_wallets):
 		print(f"{i + 1}. {list_with_wallets[i].get_all_info()}")  	# and its index
 
 
-def print_all_txs(w3: Web3):
+def print_all_txs(chain_id: int):
 	"""Prints all TXs with current network (chainId)"""
-	chain_id = w3.eth.chain_id
 	for tx in manager.Manager.all_txs:		# prints all TXs
 		if chain_id == tx.chain_id:					# with current network
 			print(tx)
@@ -85,8 +76,8 @@ def print_txs_for_wallet(chain_id: int, wallet: Wallet):
 
 def generate_label(set_with_labels):
 	while True:
-		number = int(random() * 10**5)			# generate number
-		if number >= 10000:						# if it's >= 10000
+		number = int(random() * 10**8)			# generate number
+		if number >= 10000000:						# if it's >= 10000
 			label = str(number)
 			if label not in set_with_labels:	# check it's unique
 				return label					# return
@@ -99,7 +90,7 @@ def ask_label(set_with_labels):
 			return generate_label(set_with_labels)
 
 		if label.lower() == "exit":  				# If not empty - check if "exit"
-			raise Exception("Exited while tried to write the label")
+			raise InterruptedError("Exited while tried to write the label")
 
 		if label in set_with_labels:  			# Then check if the label exist
 			print("This label is exist. Try another")
@@ -112,23 +103,21 @@ def update_wallet(w3: Web3, wallet: Wallet, set_labels: set, update_tx=False):
 	Receives Wallet. If the wallet doesn't have an address - method parses it and adds
 	After that it updates balance and transaction count
 	"""
-	if isinstance(wallet, Wallet):
-		if not wallet.addr or not wallet.addr_lower:  					# if the wallet doesn't have address
-			key = wallet.key()  										# get private key
-			wallet.addr = Account.privateKeyToAccount(key).address  	# parse the address and add
-			wallet.addr_lower = wallet.addr.lower()
+	assert isinstance(wallet, Wallet), texts.upd_error_not_wallet
+	if not wallet.addr or not wallet.addr_lower:  					# if the wallet doesn't have address
+		key = wallet.key()  										# get private key
+		wallet.addr = Account.privateKeyToAccount(key).address  	# parse the address and add
+		wallet.addr_lower = wallet.addr.lower()
 
-		if wallet.label is None:
-			wallet.label = generate_label(set_labels)
+	if wallet.label is None:
+		wallet.label = generate_label(set_labels)
 
-		wallet.balance_in_wei = w3.eth.get_balance(wallet.addr)  		# update balance
-		wallet.nonce = w3.eth.get_transaction_count(wallet.addr)  	# update nonce
+	wallet.balance_in_wei = w3.eth.get_balance(wallet.addr)  		# update balance
+	wallet.nonce = w3.eth.get_transaction_count(wallet.addr)  		# update nonce
 
-		if update_tx:
-			update_txs_for_wallet(wallet)  # updates txs list and each tx if status == None
-			[trans.update_tx(w3, tx) for tx in wallet.txs if tx.status is None]
-	else:
-		print(texts.upd_error_not_wallet)
+	if update_tx:
+		update_txs_for_wallet(wallet)  # updates txs list and each tx if status == None
+		[trans.update_tx(w3, tx) for tx in wallet.txs if tx.status is None]
 
 
 def generate_wallet(w3, set_labels, set_keys, result_list):
@@ -141,8 +130,6 @@ def generate_wallet(w3, set_labels, set_keys, result_list):
 		update_wallet(w3, wallet, set_labels)		# update it
 
 		result_list.append(wallet)				# save it
-
-		print(".", end="")  # just "progress bar"
 	else:										# If we have that key - try again... tho I doubt it
 		generate_wallet(w3, set_labels, set_keys, result_list)	# just in case...
 
@@ -168,30 +155,26 @@ def generate_wallets(w3, set_labels, set_keys, number) -> list:
 	return new_generated_wallets												# return the list
 
 
-def get_wallet_index_by_str(wallets_list: list, set_addr: set, addr: str) -> int:
+def get_wallet_index_from_input(wallets_list: list, set_addr: set, set_labels: set, line: str) -> int:
 	"""
+	Returns wallet index from Wallet's number, label or address.
 	:param wallets_list: list with wallets
 	:param set_addr: set with addresses
-	:param addr: number (starts from 1)
+	:param set_labels: set with labels
+	:param line: address or label or number (starts from 1)
 	:return: Index of selected Wallet in the list
 	"""
-	total_wallets = len(wallets_list)
+	if is_number(line) and len(line) < 4:		# Min length for label = 4 chars.
+		number = int(line)						# If it's less -> that's number
+		assert len(wallets_list) >= number > 0, "Wrong number"
+		return number - 1
+	# Tho... that should be addr or label, let's check it
+	assert line in set_addr or line in set_labels, texts.error_no_such_address
 
-	if is_number(addr):  # get number if it's number
-		number = int(addr)
-		if number > total_wallets or number < 1:		# if N > wallets in list or < 1
-			raise IndexError("Wrong number")  			# throw IndexError
-		return number - 1  								# if not - return Index
-	elif not addr.startswith("0x") or len(addr) != settings.address_length:
-		raise Exception(texts.error_not_number_or_address)
-	else:
-		if addr not in set_addr:  							# if there's no such wallet
-			raise Exception(texts.error_no_such_address)  	# throw error
-		else:
-			addr = addr.lower()
-			for i in range(total_wallets):  		# else find its Index
-				if wallets_list[i].addr_lower == addr:
-					return i  						# end return
+	line = line.lower()
+	for i in range(len(wallets_list)):
+		if wallets_list[i].addr_lower == line or wallets_list[i].label == line:
+			return i
 
 
 def delete_txs_history(wallets: list):

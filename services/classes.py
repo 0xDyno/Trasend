@@ -26,7 +26,7 @@ class Wallet:
         return format_ % (self.label, self.addr, self.get_eth_balance())
 
     def __repr__(self):
-        return self.__str__()
+        return f"{id(self)} - Wallet obj - addr {self.addr}"
 
     def get_all_info(self):
         line = self.__str__()           # all info
