@@ -132,10 +132,10 @@ def update_wallet(w3: Web3, wallet: Wallet, set_labels: set, update_tx=False):
 def generate_wallet(w3, set_labels, set_keys, result_list):
 	"""Generates unique 1 wallet (key + label). Updates it and add to the list
 	"""
-	key = w3.toHex(w3.eth.account.create().key)  	# get private key
-	if key not in set_keys:  					# check we don't have it
-		label = generate_label(set_labels)  	# generate unique label
-		wallet = Wallet(key, label)  			# create wallet
+	key = w3.toHex(w3.eth.account.create().key) 	# get private key
+	if key not in set_keys:  						# check we don't have it
+		label = generate_label(set_labels)  		# generate unique label
+		wallet = Wallet(key, label)  				# create wallet
 		update_wallet(w3, wallet, set_labels)		# update it
 
 		result_list.append(wallet)				# save it
@@ -297,6 +297,6 @@ def create_progress_bar(current, finish):
 	finish = int(finish - current)
 	current = int(current)
 
-	print(f"({current:.2}% / 100%)", end="  ")
+	print(f"({current}% / 100%)", end="  ")
 	print("." * current, end="")
 	print(" " * finish)
