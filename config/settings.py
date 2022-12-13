@@ -9,7 +9,8 @@ saved_wallets = folder + "saved_wallets"
 saved_txs = folder + "saved_txs"
 crypto_key = folder + "key"
 max_generate_addr = 999
-max_accounts = 999			# Shouldn't be more, or increase min_label_length
+# I didn't put max_accounts check to inner _add_wallet, to let load saved wallets (if different settings was before)
+max_wallets = 999			# Attention!! Shouldn't be more, or increase min_label_length
 min_label_length = 4		# Attention!! The program works property ONLY if length is less, than 4 !!
 max_label_length = 20		# Shouldn't be more, than 42
 label_gen_length = 8

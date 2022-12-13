@@ -112,7 +112,7 @@ def update_wallet(w3: Web3, wallet: Wallet, set_labels: set, update_tx=False):
 	Receives Wallet. If the wallet doesn't have an address - method parses it and adds
 	After that it updates balance and transaction count
 	"""
-	assert isinstance(wallet, Wallet), texts.upd_error_not_wallet
+	assert isinstance(wallet, Wallet), texts.error_cant_update
 	if not wallet.addr or not wallet.addr_lower:  					# if the wallet doesn't have address
 		key = wallet.key()  										# get private key
 		wallet.addr = Account.privateKeyToAccount(key).address  	# parse the address and add
@@ -157,6 +157,7 @@ def generate_wallets(w3, set_labels, set_keys, number) -> list:
 										w3, set_labels, set_keys, new_generated_wallets)		# to do generate_wallet()
 			list_daemons.append(daemon)											# add to the list
 		else:								# If we can't create - sleep and wait
+			create_progress_bar(len(new_generated_wallets), number)
 			time.sleep(settings.wait_to_create_daemon_again)
 
 	[daemon.join() for daemon in list_daemons if daemon.is_alive()]				# wait till they finish
@@ -279,3 +280,25 @@ def load_data(folder, filepath):
 		return pickle.loads(bytes_)
 	else:
 		return None
+
+
+# Some Not Important Methods...
+
+
+def create_progress_bar(current, finish):
+	"""Just "progress bar" """
+	step = 1.01
+	while finish > 100:				# equalize to 100 max
+		finish = finish / step
+		current = current / step
+	while finish < 100:
+		finish = finish * step
+		current = current * step
+	current = int(current)
+	finish = int(finish)
+
+	for _ in range(current):		# print it
+		print("#", end=" ")
+	for _ in range(finish):
+		print("..", end="")
+	print(f"# ({current}% / 100%)")

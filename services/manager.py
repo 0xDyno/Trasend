@@ -13,10 +13,10 @@ def save_txs():
 
 
 def load_txs():
-	print(texts.new_text_load_txs, end=" ")  	# Start
+	print(texts.loading_txs, end=" ")  	# Start
 	loaded_data = assist.load_data(settings.folder, settings.saved_txs)
 	if loaded_data is None:
-		print(texts.new_text_no_txs_to_load)  	# End - Tell no wallets to load
+		print(texts.no_txs_to_load)  	# End - Tell no wallets to load
 	else:
 		Manager.all_txs = loaded_data
 		print(texts.success)  					# End - Success
@@ -72,14 +72,12 @@ class Manager:
 			load_txs()					# Load Txs
 
 			# Init sets if there are wallets
-			if not self.wallets:
-				print(texts.new_text_no_wallets_to_init)
-			else:
-				print(texts.sets_text_init_sets, end=" ")
+			if self.wallets:
+				print(texts.init_files, end=" ")
 				self.update_wallets()
 				self._initialize_sets()
 				self._initialize_txs()
-				print(texts.success)
+			print(texts.init_finished)
 
 			# Start a demon to regularly update info (last block)
 			threads.start_todo(self._daemon_update_last_block, True)
@@ -141,6 +139,23 @@ class Manager:
 		self.wallets.append(wallet)				# add to the list
 		self._add_to_sets(wallet)				# add to the sets
 
+	def _delete_wallet(self, index_or_obj):
+		"""
+		Deletes wallet from list and sets by its Index in the list or Wallet obj
+		:param index_or_obj: wallet Index in the list OR wallet Obj in the list
+		"""
+		if isinstance(index_or_obj, Wallet):  # if it's wallet - get it's index
+			for i in range(len(self.wallets)):
+				if index_or_obj is self.wallets[i]:
+					index_or_obj = i
+					break
+		assert isinstance(index_or_obj, int), "It's not wallet or index, I don't work with it. Tell the devs"
+
+		wallet = self.wallets.pop(index_or_obj)  # del from the list
+		self._delete_from_sets(wallet)  # del from the sets
+		print(texts.deleted_successfully, wallet.addr)  # print about success
+		del wallet
+
 	def _delete_first_N(self, line):
 		"""Deletes N first wallets
 		:param line: str that starts on "first..." """
@@ -162,23 +177,6 @@ class Manager:
 			assert amount <= len(self.wallets), texts.del_out_of_index
 			for _ in range(amount):  			# delete them
 				self._delete_wallet(len(self.wallets) - 1)
-
-	def _delete_wallet(self, index_or_obj):
-		"""
-		Deletes wallet from list and sets by its Index in the list or Wallet obj
-		:param index_or_obj: wallet Index in the list OR wallet Obj in the list
-		"""
-		if isinstance(index_or_obj, Wallet):  # if it's wallet - get it's index
-			for i in range(len(self.wallets)):
-				if index_or_obj is self.wallets[i]:
-					index_or_obj = i
-					break
-		assert isinstance(index_or_obj, int), "It's not wallet or index, I don't work with it. Tell the devs"
-
-		wallet = self.wallets.pop(index_or_obj)  # del from the list
-		self._delete_from_sets(wallet)  # del from the sets
-		print(texts.del_successfully_deleted, wallet.addr)  # print about success
-		del wallet
 
 	def _check_last_block(self) -> bool:
 		"""
@@ -230,10 +228,10 @@ class Manager:
 		assist.save_data(self.wallets, settings.folder, settings.saved_wallets)
 
 	def _load_wallets(self):
-		print(texts.new_text_load_wallets, end=" ")  	# Start
+		print(texts.loading_wallets, end=" ")  	# Start
 		loaded_data = assist.load_data(settings.folder, settings.saved_wallets)
 		if loaded_data is None:
-			print(texts.new_text_no_wallets_to_load)	# End - Tell no wallets to load
+			print(texts.no_wallets_to_load)	# End - Tell no wallets to load
 		else:
 			self.wallets = loaded_data
 			print(texts.success)  						# End - Success
@@ -244,7 +242,11 @@ class Manager:
 
 	def try_add_wallet(self):
 		"""Parses line and adds a wallet by private key"""
+		max_ = settings.max_wallets
+		created = len(self.wallets)
 		while True:
+			assert created < max_, texts.error_max_wallet_created.format(created, max_)
+
 			print(texts.input_private_key)
 			key = input().strip().lower()
 			if not key:
@@ -260,7 +262,7 @@ class Manager:
 					if key == wallet.key():  			# if this wallet - same what the user wrote
 						label = wallet.label  			# get the label
 						break  							# stop and write it
-				print(f"Error, the key is already added to the system with the label: \"{label}\"")
+				print(texts.error_wallet_exist_with_label.format(label))
 			else:  	# If OK - add the wallet
 				wallet = Wallet(key)  					# create Wallet
 
@@ -274,13 +276,22 @@ class Manager:
 
 				wallet.label = label		# first wait for daemon to finish, then change the label
 				self._add_wallet(wallet)				# add wallet
-				print(f"Successfully added the wallet: {wallet}")
+				print(texts.added_wallet.format(wallet))
 
 	def generate_wallets(self, number):
-		if number > settings.max_generate_addr or number < 1:
-			print(texts.error_wrong_generate_number)
-		else:
-			# get the list with new generated wallets
+		max_ = settings.max_wallets
+		created = len(self.wallets)
+		assert created < max_, texts.error_max_wallet_created.format(created, max_)
+
+		allowed = max_ - created		# check if allowed
+		if number < 1 or number > allowed or number > settings.max_generate_addr:
+			if allowed > settings.max_generate_addr:
+				max_can_gen = settings.max_generate_addr
+			else:
+				max_can_gen = allowed
+			print(texts.error_wrong_generate_number.format(allowed, created, max_, max_can_gen, number))
+			print(texts.exited)
+		else:							# get the list with new generated wallets
 			new_generated_wallets = assist.generate_wallets(self.w3,
 															self.set_labels.copy(),
 															self.set_keys.copy(),
@@ -295,9 +306,9 @@ class Manager:
 		""" Realisation of deleting wallets -> certain wallet, last, last N or all
 		If change - be careful with .lower method !!
 		"""
-		assert self.wallets, texts.text_no_wallets
+		assert self.wallets, texts.no_wallets
 
-		print(texts.del_instruction_to_delete_wallet)			# instruction
+		print(texts.instruction_to_delete_wallet)			# instruction
 		addr = self.print_and_ask(text_before="List of existed wallets:")
 		if not addr:
 			print(texts.exited)
@@ -320,7 +331,7 @@ class Manager:
 		self.set_keys.clear()
 
 	def try_send_transaction(self):
-		assert self.wallets, texts.text_no_wallets
+		assert self.wallets, texts.no_wallets
 
 		try:
 			print("All wallets: ")  					# instruction
@@ -345,7 +356,7 @@ class Manager:
 			print(texts.error_something_wrong.format(e))
 
 	def try_send_to_all(self):
-		assert self.wallets, texts.text_no_wallets
+		assert self.wallets, texts.no_wallets
 
 		sender_raw = self.print_and_ask(text_after="From which wallet to send?")		# get input
 		sender_index = self.get_wallet_index_by_text(sender_raw)				# get sender index
@@ -363,7 +374,7 @@ class Manager:
 			[print(tx) for tx in txs]
 
 	def update_wallets(self):
-		assert self.wallets, texts.text_no_wallets
+		assert self.wallets, texts.no_wallets
 
 		list_daemons = list()
 
@@ -423,17 +434,17 @@ class Manager:
 
 	def print_wallets(self):
 		"""Prints wallets with its index"""
-		assert self.wallets, texts.text_no_wallets
+		assert self.wallets, texts.no_wallets
 		assist.print_wallets(self.wallets)
 
 	def print_all_info(self):
 		"""Prints wallets with its index and TXs list"""
-		assert self.wallets, texts.text_no_wallets
+		assert self.wallets, texts.no_wallets
 		assist.print_all_info(self.wallets)
 
 	def print_all_txs(self):
 		"""Prints all TXs with current network (chain_id)"""
-		assert Manager.all_txs, texts.text_no_tx
+		assert Manager.all_txs, texts.no_txs
 		assist.print_all_txs(self.chain_id)
 
 	def print_and_ask(self, text_before=None, text_after=None) -> str:
@@ -483,9 +494,9 @@ class Manager:
 
 	def connection_status(self):
 		if self.w3.isConnected():
-			is_connected = "Success"
+			is_connected = texts.success
 		else:
-			is_connected = "Fail"
+			is_connected = texts.fail
 		print("Connection:", is_connected)
 
 ###################################################################################################
