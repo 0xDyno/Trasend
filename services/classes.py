@@ -90,15 +90,19 @@ class Transaction:
         self.chain_id = chain_id                        #_1
         self.date = datetime.fromtimestamp(time)        #_2 -- datetime
         self.status = None                              #_3 -- Success / Fail / None
-        self.receiver = receiver.addr                   #_4 to
-        self.sender = sender.addr                       #_5 from
         self.value = value                              #_6 value
         self.tx = tx                                    #_7 transaction hash
 
         if isinstance(receiver, Wallet):
             receiver.txs.append(self)
+            self.receiver = receiver.addr   # _4 to
+        else:
+            self.receiver = receiver        # _4 to
         if isinstance(sender, Wallet):
             sender.txs.append(self)
+            self.sender = sender.addr       #_5 from
+        else:
+            self.sender = sender            #_5 from
 
     def __str__(self):
         return settings.chain_name[self.chain_id] + " >> " + self.str_no_bc()

@@ -170,6 +170,19 @@ def get_wallet_index_from_input(wallets_list: list, set_addr: set, set_labels: s
 			return i
 
 
+def read_input_get_wallets():
+	addr_list = list()
+	while True:
+		read_line = input()
+		if read_line.lower() == "done":
+			return addr_list
+		try:
+			addr = Web3.toChecksumAddress(read_line)
+			addr_list.append(addr)
+		except ValueError:
+			print("Wrong address, check for mistake -", read_line)
+
+
 def delete_txs_history(wallets: list):
 	if manager.Manager.all_txs:
 		[wallet.txs.clear() for wallet in wallets]		# delete TXs from wallets

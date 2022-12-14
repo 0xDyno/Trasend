@@ -395,7 +395,9 @@ class Manager:
 			receivers = self.wallets.copy()
 			receivers.pop(sender_index)
 		elif receivers == "list":
-			raise AssertionError("Not realized now.. will be ready later")
+			print("Print addresses below, 1 address per line (can be in batch), write 'done' when finished.")
+			receivers = assist.read_input_get_wallets()
+			print("Got", len(receivers), "addresses")
 		else:
 			receivers_list = list()
 			for text in receivers.split(" "):
@@ -421,7 +423,7 @@ class Manager:
 		else:
 			print("\nBalance is >> {:.2f} {}".format(sender.get_eth_balance(),
 													 settings.chain_default_coin[self.w3.eth.chain_id]))
-			amount_to_send = self.print_ask(text_in_input="How much you want to send? >> ", print_wallets=False)
+			amount_to_send = self.print_ask(text_in_input="How much you want to send to each? >> ", print_wallets=False)
 			amount_to_send = Web3.toWei(amount_to_send, "ether")
 			# SEND
 			if trans.print_price_and_confirm(self.chain_id, value=amount_to_send, receivers=receivers):
