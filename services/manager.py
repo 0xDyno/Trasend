@@ -55,13 +55,8 @@ class Manager:
 		 If second time - it will use data from 1st time
 		"""
 		if not self.is_initialized:
-			assert isinstance(connection, Web3), texts.error_not_web3.format(connection, Web3)
-			chain = connection.eth.chain_id
-			assert chain in settings.supported_chains, texts.error_chain_not_supported.format(chain)
-
-			self.is_initialized = True		# to protect creation manager again
-			self.w3 = connection
-			self.chain_id = chain
+			self.set_new_connection(connection)		# add Web3
+			self.is_initialized = True				# to protect creation manager again
 
 			self.wallets = list()
 			self.set_keys = set()
@@ -86,10 +81,14 @@ class Manager:
 		else:
 			print(f"Connection status: {self.w3.isConnected()}")
 
-	def new_connection(self, connection: Web3):
-		assert isinstance(connection, Web3), texts.error_not_web3.format(connection, Web3)
-		self.w3 = connection
+	def set_new_connection(self, connection: Web3):
+		"""Checks connection is Web3 and chain id is supported"""
+		assert isinstance(connection, Web3), texts.error_not_web3.format(connection, Web3)		# check connection
+		assert connection.eth.chain_id in settings.supported_chains, \
+			texts.error_chain_not_supported.format(connection.eth.chain_id)			# check chainId
+		self.w3 = connection														# set if Ok
 		self.chain_id = self.w3.eth.chain_id
+		print(texts.connected_to_rpc.format(self.chain_id, settings.chain_name[self.chain_id]))
 
 ###################################################################################################
 # Inner methods ###################################################################################
@@ -279,12 +278,14 @@ class Manager:
 				self._add_wallet(wallet)				# add wallet
 				print(texts.added_wallet.format(wallet))
 
-	def generate_wallets(self, number):
+	def try_generate_wallets(self):
+		number = int(input(f"How many wallets you want to generate?\n>>>  "))
+
 		max_ = settings.max_wallets
-		created = len(self.wallets)
+		created = len(self.wallets)		# check Total Wallets less than Allowed in settings
 		assert created < max_, texts.error_max_wallet_created.format(created, max_)
 
-		allowed = max_ - created		# check if allowed
+		allowed = max_ - created		# check is Allowed to create the amount user wants
 		if number < 1 or number > allowed or number > settings.max_generate_addr:
 			if allowed > settings.max_generate_addr:
 				max_can_gen = settings.max_generate_addr
@@ -292,7 +293,7 @@ class Manager:
 				max_can_gen = allowed
 			print(texts.error_wrong_generate_number.format(allowed, created, max_, max_can_gen, number))
 			print(texts.exited)
-		else:							# get the list with new generated wallets
+		else:							# if Allowed - get the list with created wallets
 			new_generated_wallets = assist.generate_wallets(self.w3,
 															self.set_labels.copy(),
 															self.set_keys.copy(),

@@ -34,11 +34,12 @@ trying_connect = "Trying to connect RPC point (node)..."
 
 # Text to initialize in method __new__:
 error_chain_not_supported = "Chain {} is not supported yet."
-loading_wallets = "Loading the wallets into the system..."
-loading_txs = "Loading the txs into the system..."
+connected_to_rpc = "\t>>> ChainId = {}, {}"
+loading_wallets = "\tLoading the wallets into the system..."
+loading_txs = "\tLoading the txs into the system..."
 no_wallets_to_load = no_wallets + " to load into the system."
 no_txs_to_load = no_txs + " to load into the system."
-init_files = "Initialize addition system files..."
+init_files = "\tInitialize addition system files..."
 init_finished = "Init is finished."
 
 # Add / Generate wallet:

@@ -27,11 +27,7 @@ def main():
                 case "2":                                                                   # Add wallets
                     m.try_add_wallet()
                 case "2g":                                                                  # Generate wallets
-                    number = input(f"How many wallets generate?\n>>>  ")
-                    if number.isnumeric():
-                        m.generate_wallets(int(number))
-                    else:
-                        print("Not a number")
+                    m.try_generate_wallets()
                 case "3":                                                                   # Delete wallets
                     m.try_delete_wallet()
                 case "3a":                                                                  # Delete all
@@ -92,8 +88,8 @@ def main():
 if __name__ == "__main__":
     print(texts.trying_connect, end=" ")
     connection = Web3(Web3.HTTPProvider(HTTPS_GOERLI))
-    m = Manager(connection)
     print(texts.success)
+    m = Manager(connection)
 
     try:
         main()
