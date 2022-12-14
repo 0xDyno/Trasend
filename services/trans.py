@@ -99,11 +99,6 @@ def transaction_sender(w3: Web3, sender: Wallet, receivers: list | Wallet, value
 	"""
 	Sends asset from 1 wallet to N others wallets chosen amount.
 	If Amount = 2 and 20 receivers, then will be sent 2*20 = 40 units
-	:param w3:
-	:param sender:
-	:param receivers: list with Wallets or Wallet obj
-	:param value:
-	:return: list with TXs (str)
 	"""
 	if isinstance(receivers, Wallet):		# if it's Wallet - make list
 		receivers = [receivers]				# with 1 Wallet
@@ -111,6 +106,7 @@ def transaction_sender(w3: Web3, sender: Wallet, receivers: list | Wallet, value
 	txs = list()
 
 	for i in range(len(receivers)):		# for each receiver send transaction
+		assist.create_progress_bar(i, len(receivers))
 		tx = compose_native_transaction(w3, sender, sender.nonce + i,
 										receivers[i], value)
 		txs.append(tx)					# add tx
@@ -123,7 +119,9 @@ def transaction_sender_erc20(w3: Web3, erc20, token: Token, sender: Wallet, rece
 	txs = list()
 	nonce = sender.nonce
 
+
 	for i in range(len(receivers)):
+		assist.create_progress_bar(i, len(receivers))
 		tx_hash = send_erc20(w3, erc20, sender.addr, sender.key(), nonce+i, receivers[i].addr, amount)
 		txs.append(Transaction(w3.eth.chain_id, time.time(), receivers[i], sender,
 							   str(convert_to_normal_view(amount, token.decimal)), tx_hash, token.symbol, token.sc_addr))

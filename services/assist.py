@@ -6,7 +6,7 @@ from eth_account import Account
 
 from cryptography.fernet import Fernet
 from random import random
-from datetime import date
+from datetime import date, datetime
 
 from config import settings, texts
 from services.classes import Wallet, Token
@@ -135,10 +135,11 @@ def generate_wallets(w3, set_labels, set_keys, number) -> list:
 	"""
 	new_generated_wallets = list()
 	list_daemons = list()
-	print(f"Started the generation {number} wallets. Progress bar: ")
+	print(f"Started the generation {number} wallets")
 	for _ in range(number):
 		while not threads.can_create_daemon():		# If we can create daemon - sleep
-			create_progress_bar(len(new_generated_wallets), number)
+			if number > 50:
+				create_progress_bar(len(new_generated_wallets), number)
 			time.sleep(settings.wait_to_create_daemon_again)
 
 		daemon = threads.start_todo(generate_wallet, False, w3, set_labels, set_keys, new_generated_wallets)
@@ -210,6 +211,15 @@ def add_smart_contract_token(chain_id: int, sc_addr: str, symbol: str, decimal: 
 		new_token = Token(chain_id, sc_addr, symbol, decimal, abi)		# create Token
 		manager.Manager.dict_sc_addr.get(chain_id).add(sc_addr)			# add addr to addr_set in correct chain if
 		manager.Manager.all_tokens.add(new_token)						# and add Obj to global set
+
+
+def export_wallets(wallets: list):
+	time_ = str(datetime.strftime(datetime.fromtimestamp(time.time()), "%Y_%H%M%S"))
+	path = os.path.join(os.getcwd() + "/" + settings.folder + "wallet_export_" + time_ + ".txt")
+	with open(path, "w") as w:
+		for wallet in wallets:
+			w.write(f"{wallet.addr} {wallet.key()}\n")
+	print("Wallets were exported to >>>", path)
 
 
 def check_saveloads_files(folder: str, path_to_file: str):

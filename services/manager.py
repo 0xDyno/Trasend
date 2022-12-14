@@ -560,6 +560,9 @@ class Manager:
 		"""Asks label and checks uniqueness"""
 		return assist.ask_label(self.set_labels.copy())
 
+	def export_wallets(self):
+		assist.export_wallets(self.wallets)
+
 	def update_last_block(self):
 		self.last_block = self.w3.eth.get_block("latest")
 

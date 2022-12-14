@@ -4,7 +4,7 @@ from config.settings import private_key_length, label_min_length, label_max_leng
 instruction_main = """--------------------------------------------------- Show ----------------------------------------------------
 	 1  Wallets            1a  Wallets + TXs          1t  Transactions          1at  All Txs for 1 Address
 ----------------------------------------------- Add wallets -------------------------------------------------
-	 2  Add Wallet         2g  Generate wallets
+	 2  Add Wallet         2g  Generate wallets	      2e Export wallets
 -------------------------------------------------- Delete ---------------------------------------------------
 	 3  Selected wallets   3a  All wallets            3t All TXs history        4 Send ETH / ERC-20
 

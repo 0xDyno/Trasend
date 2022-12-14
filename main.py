@@ -15,37 +15,40 @@ def main():
         try:
             text = input("  >>> ").lower().strip()
             match text:
-                case "1":                                                                   # Show all wallets
+                case "1":                             # Show all wallets
                     m.print_wallets()
-                case "1a":                                                                  # Show all wallets + trans
+                case "1a":                            # Show all wallets + trans
                     m.print_all_info()
-                case "1t":                                                                  # Show all TXs
+                case "1t":                            # Show all TXs
                     m.print_all_txs()
-                case "1at":                                                                 # Show all TXs for 1 acc
+                case "1at":                           # Show all TXs for 1 acc
                     m.print_txs_for_wallet()
-                case "2":                                                                   # Add wallets
+                case "2":                             # Add wallets
                     m.try_add_wallet()
-                case "2g":                                                                  # Generate wallets
+                case "2g":                            # Generate wallets
                     m.try_generate_wallets()
-                case "3":                                                                   # Delete wallets
+                case "2e":                            # Export wallet
+                    if assist.confirm():
+                        m.export_wallets()
+                case "3":                             # Delete wallets
                     m.try_delete_wallet()
-                case "3a":                                                                  # Delete all
+                case "3a":                            # Delete all
                     if assist.confirm():
                         m.delete_all()
                         print(texts.success)
-                case "3t":                                                                  # Delete all transactions
+                case "3t":                            # Delete all transactions
                     if assist.confirm():
                         m.delete_txs_history()
                         print(texts.success)
-                case "4":                                                                   # Send transaction (native)
+                case "4":                             # Send transaction (native)
                     m.try_send_transaction()
-                case "5":                                                                   # empty
+                case "5":                             # empty
                     pass
-                case "upd":                                                                 # last block info
+                case "upd":                           # last block info
                     m.update_wallets()
-                case "01":                                                                  # check connection
+                case "01":                            # check connection
                     m.print_block_info()
-                case "02":                                                                  # update wallets
+                case "02":                             # update wallets
                     m.connection_status()
                 case "03":
                     print_gas_price_info()
@@ -56,13 +59,7 @@ def main():
                 case "th":       # print total threads
                     print(len(threading.enumerate()), " : ", threading.enumerate())
                 case "tset":
-                    print("Addrs:")
-                    [print(addr, end=" ") for addr in m.set_addr]
-                    print("\nKeys:")
-                    [print(key, end=" ") for key in m.set_keys]
-                    print("\nLabels:")
-                    [print(label, end=" ") for label in m.set_labels]
-                    print("\n")
+                    pass
                 case "exit":
                     break
                 case "e":
@@ -71,7 +68,7 @@ def main():
                     print("\n%s\n---------------------" % texts.instruction_main)
                 case _:
                     print(texts.wrong_command_main)
-        except (AssertionError, TypeError, IndexError, InterruptedError) as e:
+        except (AssertionError, TypeError, IndexError, ValueError, InterruptedError) as e:
             print(e)
         except KeyboardInterrupt:
             print("Finished")
