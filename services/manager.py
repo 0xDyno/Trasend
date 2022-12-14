@@ -56,11 +56,12 @@ class Manager:
 		"""
 		if not self.is_initialized:
 			assert isinstance(connection, Web3), texts.error_not_web3.format(connection, Web3)
-			self.is_initialized = True
-			self.w3 = connection
+			chain = connection.eth.chain_id
+			assert chain in settings.supported_chains, texts.error_chain_not_supported.format(chain)
 
-			# Main params:
-			self.chain_id = self.w3.eth.chain_id
+			self.is_initialized = True		# to protect creation manager again
+			self.w3 = connection
+			self.chain_id = chain
 
 			self.wallets = list()
 			self.set_keys = set()

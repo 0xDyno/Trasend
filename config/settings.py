@@ -2,6 +2,7 @@
 private_key_length = 66
 address_length = 42
 gas_for_native = 21000
+supported_chains = {1, 5, 56}
 
 """ For Manager """		#################################################
 folder = "private/"
