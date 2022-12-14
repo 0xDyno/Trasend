@@ -246,8 +246,8 @@ class Manager:
 		created = len(self.wallets)
 		while True:
 			assert created < max_, texts.error_max_wallet_created.format(created, max_)
-
 			print(texts.input_private_key)
+
 			key = input().strip().lower()
 			if not key:
 				print(texts.exited)
@@ -279,7 +279,11 @@ class Manager:
 				print(texts.added_wallet.format(wallet))
 
 	def try_generate_wallets(self):
-		number = int(input(f"How many wallets you want to generate?\n>>>  "))
+		try:
+			number = int(input(f"How many wallets you want to generate?\n>>>  "))
+		except ValueError:
+			print("Wrong number", texts.exited, sep="\n")
+			return
 
 		max_ = settings.max_wallets
 		created = len(self.wallets)		# check Total Wallets less than Allowed in settings
@@ -311,7 +315,7 @@ class Manager:
 		assert self.wallets, texts.no_wallets
 
 		print(texts.instruction_to_delete_wallet)			# instruction
-		addr = self.print_and_ask(text_before="List of existed wallets:")
+		addr = self.print_ask(text_before="List of existed wallets:")
 		if not addr:
 			print(texts.exited)
 			return
@@ -333,37 +337,30 @@ class Manager:
 		self.set_keys.clear()
 
 	def try_send_transaction(self):
-		assert self.wallets, texts.no_wallets
+		assert self.wallets, texts.no_wallets							# Print wallets and ask
+		sender_text = self.print_ask(text_before="Choose wallet to send:", text_in_input="From which send: ")
+		sender = self.get_wallet_by_text(sender_text)						# Get that wallet
 
-		try:
-			print("All wallets: ")  					# instruction
-			self.print_wallets()  						# print wallets
+		daemon = threads.start_todo(self.update_wallet, True, sender)		# Start daemon to update addr
 
-			print("From which send:")
-			sender = self.get_wallet_by_text(input())
+		receiver_text = self.print_ask(text_in_input="To which send: ", print_wallets=False)
+		receiver = self.get_wallet_by_text(receiver_text)				# get receiver
 
-			daemon = threads.start_todo(self.update_wallet, True, sender)
-			print("To which send:")
-			receiver = self.get_wallet_by_text(input())
-
-			print("Write amount:")
-			amount = self.w3.toWei(input(), "ether")
-
-			daemon.join()
-			txs_list: list = trans.transaction_sender(self.w3, sender, receiver, amount)
-
-			[Manager.all_txs.append(tx) for tx in txs_list if tx not in Manager.all_txs]		# add tx
-			[print(tx) for tx in txs_list]														# print
-		except Exception as e:
-			print(texts.error_something_wrong.format(e))
+		amount = self.print_ask(text_in_input="Write the amount: ", print_wallets=False)
+		amount = self.w3.toWei(amount, "ether")							# and amount
+		daemon.join()													# wait for daemon to finish
+										# returns list, but we have only 1 tx
+		tx = trans.transaction_sender(self.w3, sender, receiver, amount)[0]
+		Manager.all_txs.append(tx)		# add tx
+		print(tx)						# print
 
 	def try_send_to_all(self):
 		assert self.wallets, texts.no_wallets
 
-		sender_raw = self.print_and_ask(text_after="From which wallet to send?")		# get input
+		sender_raw = self.print_ask(text_after="From which wallet to send?")	# get input
 		sender_index = self.get_wallet_index_by_text(sender_raw)				# get sender index
 
-		receivers = self.wallets.copy()											# copy all list
+		receivers = self.wallets.copy()											# copy wallet list
 		sender = receivers.pop(sender_index)									# get sender and delete from list
 		daemon = threads.start_todo(self.update_wallet, True, sender)			# start daemon to update sender info
 
@@ -449,19 +446,29 @@ class Manager:
 		assert Manager.all_txs, texts.no_txs
 		assist.print_all_txs(self.chain_id)
 
-	def print_and_ask(self, text_before=None, text_after=None) -> str:
-		"""Prints wallets and ask to choose the wallet
-		:param text_before: str, prints text before wallets list
-		:param text_after: str, prints text after wallets list
-		:return: user's input"""
+	def print_ask(self, text_before=None, text_after=None, text_in_input=None, print_wallets=True) -> str:
+		"""Prints text if given, prints wallet list if True and ask to input text. If not empty - returns
+		:param text_before: prints text before wallets list
+		:param text_after: prints text after wallets list
+		:param text_in_input: print text and ask to input in the same line
+		:param print_wallets: doesn't print wallet list if No
+		:return: user's input if it's not empty"""
 		if text_before is not None:
 			print(text_before)			# print text_before is there's
 
-		self.print_wallets()			# prints wallets
+		if print_wallets:
+			self.print_wallets()  		# prints wallets
 
 		if text_after is not None:
 			print(text_after)			# print text_after is there's
-		return input().strip().lower()
+
+		if text_in_input is not None:	# Choose how to ask - in the same line
+			users_input = input(text_in_input).strip().lower()
+		else:							# or on the next line
+			users_input = input().strip().lower()
+
+		assert users_input, texts.exited	# check it's not empty
+		return users_input					# return
 
 	def update_wallet(self, wallet, update_tx=False):
 		"""Updates wallet balance & nonce, adds addr if wallet doesn't have it.
@@ -473,7 +480,7 @@ class Manager:
 
 	def print_txs_for_wallet(self):
 		"""Prints TXs for selected wallet in current blockchain"""
-		text = self.print_and_ask(text_after="Choose the acc:")				# prints wallets + ask to choose
+		text = self.print_ask(text_after="Choose the acc:")				# prints wallets + ask to choose
 		wallet = self.get_wallet_by_text(text)							# gets wallet from str
 		assist.print_txs_for_wallet(self.chain_id, wallet)		# prints txs for that wallet in the network
 

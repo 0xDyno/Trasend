@@ -25,19 +25,6 @@ def confirm(print_before=None):
 	return input("Are you sure? Write \"y\" to confirm: ").lower().strip() == "y"
 
 
-
-def is_number(e: str) -> bool:
-	"""Returns is it a number or no... isnumeric() returns False when '-1'
-	:param e: str
-	:return: True or False
-	"""
-	try:
-		int(e)
-		return True
-	except ValueError:
-		return False
-
-
 def get_fernet_key():
 	with open(settings.crypto_key, "rb") as r:
 		return r.read()
@@ -170,7 +157,7 @@ def get_wallet_index_from_input(wallets_list: list, set_addr: set, set_labels: s
 	:param line: address or label or number (starts from 1)
 	:return: Index of selected Wallet in the list
 	"""
-	if is_number(line) and len(line) < 4:		# Min length for label = 4 chars.
+	if line.isnumeric() and len(line) < 4:		# Min length for label = 4 chars.
 		number = int(line)						# If it's less -> that's number
 		assert len(wallets_list) >= number > 0, "Wrong number"
 		return number - 1
