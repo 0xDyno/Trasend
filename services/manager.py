@@ -1,6 +1,8 @@
 # Import my files
+from decimal import Decimal
+
 from config import texts, settings
-from services.classes import Wallet
+from services.classes import Wallet, Token
 from services import assist, trans, threads, logs
 
 # Import third-party files
@@ -97,13 +99,14 @@ class Manager:
 
 	def _initialize_dict(self):
 		"""Init dict with sc_addrs, where key -> chain number, value -> set with addresses"""
-		if not self.all_tokens:
-			return
 		for chain_id in settings.chain_name.keys():		# create list for every chain
-			self.dict_sc_addr[chain_id] = set()
+			Manager.dict_sc_addr[chain_id] = set()
 
-		for token in self.all_tokens:			# get correct set (correct chain id) and add
-			self.dict_sc_addr[token.chain_id].append(token.sc_addr)		# smart contract to it
+		if not Manager.all_tokens:
+			return
+
+		for token in Manager.all_tokens:				# get correct set (correct chain id) and add
+			Manager.dict_sc_addr[token.chain_id].add(token.sc_addr)		# smart contract to it
 
 	def _add_to_sets(self, wallet):
 		"""Adds new wallet to sets if there's no such wallet.
@@ -187,7 +190,7 @@ class Manager:
 		if self.last_block is not None:  # exist - Ok, tell it
 			return True
 		else:  # No?
-			print("No info about the last block, updating...", sep=" ")
+			print("No info about the last block, updating...")
 			self.update_last_block()  # Try to update
 
 			if self.last_block is not None:  # if not Ok - tell it
@@ -228,10 +231,10 @@ class Manager:
 		assist.save_data(self.wallets, settings.folder, settings.saved_wallets)
 
 	def _save_txs(self):
-		assist.save_data(self.all_txs, settings.folder, settings.saved_txs)
+		assist.save_data(Manager.all_txs, settings.folder, settings.saved_txs)
 
 	def _save_tokens(self):
-		assist.save_data(self.all_tokens, settings.folder, settings.saved_tokens)
+		assist.save_data(Manager.all_tokens, settings.folder, settings.saved_tokens)
 
 	def _load_wallets(self):
 		print(texts.loading_wallets, end=" ")  		# Start
@@ -248,7 +251,7 @@ class Manager:
 		if loaded_data is None:
 			print(texts.no_txs_to_load)  			# End - Tell no txs to load
 		else:
-			self.all_txs = loaded_data
+			Manager.all_txs = loaded_data
 			print(texts.success)  					# End - Success
 
 	def _load_tokens(self):
@@ -257,7 +260,7 @@ class Manager:
 		if loaded_data is None:
 			print(texts.no_tokens_to_load)  		# End - Tell no tokens to load
 		else:
-			self.all_tokens = loaded_data
+			Manager.all_tokens = loaded_data
 			print(texts.success)  					# End - Success
 
 ###################################################################################################
@@ -361,22 +364,92 @@ class Manager:
 		self.set_keys.clear()
 
 	def try_send_transaction(self):
-		assert self.wallets, texts.no_wallets							# Print wallets and ask
-		sender_text = self.print_ask(text_before="Choose wallet to send:", text_in_input="From which send: ")
-		sender = self.get_wallet_by_text(sender_text)						# Get that wallet
+		assert self.wallets, texts.no_wallets
+		# Get sender
+		text = self.print_ask(text_in_input="Choose wallet to send >> ")
+		sender_index = self.get_wallet_index_by_text(text)
+		sender: Wallet = self.wallets[sender_index]
+		daemon1 = threads.start_todo(self.update_wallet, True, sender)
+		daemon2 = None
 
-		daemon = threads.start_todo(self.update_wallet, True, sender)		# Start daemon to update addr
+		# Get what to send
+		what_to_send = input(texts.what_to_send.format(settings.chain_default_coin[self.chain_id])).strip()
+		if not what_to_send:		# so, that's main
+			send_smart_contract = False
+		elif what_to_send.startswith("0x") and len(what_to_send) == settings.address_length:
+			send_smart_contract = True		# so that's erc-20
+			try:
+				what_to_send = Web3.toChecksumAddress(what_to_send)
+			except ValueError:
+				print(texts.error_not_contract_address)
+				raise InterruptedError(texts.exited)
+			daemon2 = threads.start_todo(trans.update_erc_20, True, self.w3, what_to_send)
+		else:					# else X3 what it is
+			print(texts.error_not_contract_address)
+			raise InterruptedError(texts.exited)
 
-		receiver_text = self.print_ask(text_in_input="To which send: ", print_wallets=False)
-		receiver = self.get_wallet_by_text(receiver_text)				# get receiver
+		# Get receivers
+		receivers = self.print_ask(text_after=texts.choose_receivers, text_in_input="Your choice >> ")
 
-		amount = self.print_ask(text_in_input="Write the amount: ", print_wallets=False)
-		amount = self.w3.toWei(amount, "ether")							# and amount
-		daemon.join()													# wait for daemon to finish
-										# returns list, but we have only 1 tx
-		tx = trans.transaction_sender(self.w3, sender, receiver, amount)[0]
-		Manager.all_txs.append(tx)		# add tx
-		print(tx)						# print
+		if receivers == "all":
+			receivers = self.wallets.copy()
+			receivers.pop(sender_index)
+		elif receivers == "list":
+			raise AssertionError("Not realized now.. will be ready later")
+		else:
+			receivers_list = list()
+			for text in receivers.split(" "):
+				receivers_list.append(self.get_wallet_by_text(text))
+			receivers = receivers_list
+
+		# Wait for daemons
+		daemon1.join()
+		if daemon2 is not None:
+			daemon2.join()
+
+		# Get balance if we need and show
+		if send_smart_contract:		# sc logic
+			token: Token = assist.get_smart_contract_if_have(self.w3.eth.chain_id, what_to_send)
+			erc_20 = self.w3.eth.contract(address=token.sc_addr, abi=token.get_abi())
+			sender_balance = erc_20.functions.balanceOf(Web3.toChecksumAddress(sender.addr)).call()
+			print("\tBalance is >> {:.2f}".format(float(trans.convert_to_normal_view(sender_balance, token.decimal))))
+			print("Minimum for", token.symbol, "is", trans.convert_to_normal_view_str(token.decimal))
+			amount_to_send = Decimal(self.print_ask(text_in_input="How much you want to send? >> ", print_wallets=False))
+			amount_to_send = trans.convert_for_machine(amount_to_send, token.decimal)
+			# SEND
+			txs = trans.transaction_sender_erc20(self.w3, erc_20, token, sender, receivers, amount_to_send)
+		else:
+			print("\nBalance is >> {:.2f} {}".format(sender.get_eth_balance(),
+													 settings.chain_default_coin[self.w3.eth.chain_id]))
+			amount_to_send = self.print_ask(text_in_input="How much you want to send? >> ", print_wallets=False)
+			amount_to_send = Web3.toWei(amount_to_send, "ether")
+			# SEND
+			if trans.print_price_and_confirm(self.chain_id, value=amount_to_send, receivers=receivers):
+				txs = trans.transaction_sender(self.w3, sender, receivers, amount_to_send)  	# send txs
+			else:
+				raise InterruptedError(texts.exited)
+
+		# add to list
+		[Manager.all_txs.append(tx) for tx in txs if tx not in Manager.all_txs]
+		[print(tx) for tx in txs]
+
+	# def try_send_transaction(self):
+	# 	assert self.wallets, texts.no_wallets							# Print wallets and ask
+	# 	sender_text = self.print_ask(text_before="Choose wallet to send:", text_in_input="From which send: ")
+	# 	sender = self.get_wallet_by_text(sender_text)						# Get that wallet
+	#
+	# 	daemon = threads.start_todo(self.update_wallet, True, sender)		# Start daemon to update addr
+	#
+	# 	receiver_text = self.print_ask(text_in_input="To which send: ", print_wallets=False)
+	# 	receiver = self.get_wallet_by_text(receiver_text)				# get receiver
+	#
+	# 	amount = self.print_ask(text_in_input="Write the amount: ", print_wallets=False)
+	# 	amount = self.w3.toWei(amount, "ether")							# and amount
+	# 	daemon.join()													# wait for daemon to finish
+	# 									# returns list, but we have only 1 tx
+	# 	tx = trans.transaction_sender(self.w3, sender, receiver, amount)[0]
+	# 	Manager.all_txs.append(tx)		# add tx
+	# 	print(tx)						# print
 
 	def try_send_to_all(self):
 		assert self.wallets, texts.no_wallets

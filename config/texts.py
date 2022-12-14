@@ -70,7 +70,14 @@ instruction_to_delete_wallet = "To delete a wallet - write it's number or the ad
 deleted_successfully = "The wallet was successfully deleted"
 del_out_of_index = "Wrong amount - there are no so many wallets that you want to delete"
 
-# Send TXs, TXs
+# Send function
+what_to_send = "Press enter to send {} or drop me contract address (token) >> "
+error_not_contract_address = "That's not contract address 100%, check it one more time and try again."
+choose_receivers = """
+You can: 
+1. choose 1 receiver or more, they should be separated by spaces
+2. Write 'all' to send to all in the system or 'list' (not realized yet) to drop the list of senders. 
+Example choose batch >>> 1 2 any_label 6 21991656 27 13 83 127 0x690b9a9e9aa1c9db991c7721a92d351db4fac990 92 39 12"""
 tx_received = "Received"
 tx_sent = "Sent"
 

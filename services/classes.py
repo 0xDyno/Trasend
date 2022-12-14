@@ -62,7 +62,7 @@ class Wallet:
 
         format_ = "({blockchain}) {status}: {tx_type} {value} {token} {sender_or_receiver} on {date} ({link})"
 
-        return format_.format(blockchain=blockchain, tx_type=tx_type, value=tx.get_eth_value(), token=tx.symbol,
+        return format_.format(blockchain=blockchain, tx_type=tx_type, value=tx.value, token=tx.symbol,
                               sender_or_receiver=sender_or_receiver, date=tx_time, status=tx.status, link=link)
 
 
@@ -104,11 +104,8 @@ class Transaction:
         """Returns text with no BlockChain info"""
         string = "From {sender} sent {amount} {token} to {receiver} on {date}\n\t\t{status}, link: {link}"
         link = settings.chain_explorers[self.chain_id] + settings.tx_slash + self.tx
-        return string.format(sender=self.sender, amount=Web3.fromWei(self.value, "ether"), token=self.symbol,
+        return string.format(sender=self.sender, amount=self.value, token=self.symbol,
                              receiver=self.receiver, date=self.get_time(), status=self.status, link=link)
-
-    def get_eth_value(self):
-        return Web3.fromWei(self.value, "ether")
 
     def get_tx_type(self, wallet: Wallet):
         """Returns the wallet is sender or receiver"""
@@ -133,7 +130,7 @@ class Token:
         self.sc_addr = sc_addr
         self.symbol = symbol
         self.decimal = decimal
-        self.abi = abi
+        self._abi = abi
 
     def __str__(self):
         chain = settings.chain_default_coin[self.chain_id]
@@ -141,7 +138,7 @@ class Token:
         return format_.format(chain, self.symbol, self.sc_addr, self.decimal)
 
     def get_abi(self):
-        if self.abi == "default":
+        if self._abi == "default":
             return settings.ABI
         else:
-            return self.abi
+            return self._abi

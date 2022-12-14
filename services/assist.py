@@ -10,8 +10,7 @@ from datetime import date
 
 from config import settings, texts
 from services.classes import Wallet, Token
-from services import threads, trans, manager
-
+from services import threads, trans, manager, logs
 
 """
 File with general methods to alleviate Manager (make it easy to read)
@@ -187,7 +186,7 @@ def update_txs_for_wallet(wallet):
 				wallet.txs.append(tx)
 
 
-def check_smart_contract_saved(chain_id, sc_addr) -> bool:
+def is_contract_exist(chain_id, sc_addr) -> bool:
 	"""Checks that we have smart contract info in correct chain"""
 	tokens_set = manager.Manager.dict_sc_addr.get(chain_id)
 	if not tokens_set:  			# get set with correct chain id
@@ -199,7 +198,7 @@ def check_smart_contract_saved(chain_id, sc_addr) -> bool:
 
 def get_smart_contract_if_have(chain_id, sc_addr) -> Token | bool:
 	"""Check if the tokens exists in the system and returns it, otherwise returns False"""
-	if check_smart_contract_saved(chain_id, sc_addr):
+	if is_contract_exist(chain_id, sc_addr):
 		for token in manager.Manager.all_tokens:
 			if token.chain_id == chain_id and token.sc_addr == sc_addr:
 				return token
@@ -207,7 +206,7 @@ def get_smart_contract_if_have(chain_id, sc_addr) -> Token | bool:
 
 
 def add_smart_contract_token(chain_id: int, sc_addr: str, symbol: str, decimal: int, abi="default"):
-	if check_smart_contract_saved(chain_id, sc_addr):					# if new one
+	if not is_contract_exist(chain_id, sc_addr):					# if new one
 		new_token = Token(chain_id, sc_addr, symbol, decimal, abi)		# create Token
 		manager.Manager.dict_sc_addr.get(chain_id).add(sc_addr)			# add addr to addr_set in correct chain if
 		manager.Manager.all_tokens.add(new_token)						# and add Obj to global set

@@ -40,7 +40,8 @@ def main():
                 case "4":                                                                   # Send transaction (native)
                     m.try_send_transaction()
                 case "4a":                                                                  # Send to All (native)
-                    m.try_send_to_all()
+                    # m.try_send_to_all()
+                    pass
                 case "4e":                              # to implement Send ERC-20
                     pass
                 case "4ea":                             # to implement Send ETC-20 to All

@@ -1,9 +1,10 @@
 import time
+from decimal import Decimal
 
-import services.manager
-from config import settings
+from web3.exceptions import BadFunctionCallOutput, ABIFunctionNotFound
 from services.classes import *
 from services import threads, logs, assist, manager
+from eth_defi.token import fetch_erc20_details
 
 """
 Helps Manager to work with transactions
@@ -33,7 +34,7 @@ def print_gas_price_info():
 
 def print_price_and_confirm(chain_id, value, receivers: list | set | tuple) -> bool:
 	"""Prints the price for the transaction and ask to confirm before sending """
-	coin = chain_default_coin[chain_id]
+	coin = settings.chain_default_coin[chain_id]
 	tx_number = len(receivers)					# get No of TXs will be made
 	gas_price = manager.Manager.gas_price		# get gas price (like gwei, but in wei | 1gwei=1000000000wei)
 	priority = manager.Manager.max_priority
@@ -65,6 +66,35 @@ def get_gas(w3: Web3, receiver: Wallet, last_block) -> int:
 	return w3.eth.estimate_gas(tx, last_block["number"])
 
 
+def convert_to_normal_view(not_normal: int, decimal) -> Decimal:
+	"""Use to convert 1000000000000000000 Wei to 1 ETH"""
+	return Decimal(not_normal) / Decimal(10 ** decimal)
+
+
+def convert_for_machine(normal: Decimal, decimal) -> int:
+	"""Use to convert 1 ETH to 1000000000000000000 Wei"""
+	return int(normal * 10 ** decimal)
+
+
+def convert_to_normal_view_str(decimal, not_normal=1) -> str:
+	min_ = convert_to_normal_view(not_normal, decimal)
+	str_format = "{0:." + decimal.__str__() + "f}"
+	return str_format.format(min_)
+
+
+def update_erc_20(w3: Web3, sc_addr):
+	"""If we don't have that contrat in the system - do connection, get info and save new Token to the system"""
+	if not assist.is_contract_exist(w3.eth.chain_id, sc_addr):
+		try:
+			erc_20 = w3.eth.contract(address=sc_addr, abi=settings.ABI)			# get erc_20 connection
+			symbol = erc_20.functions.symbol().call()							# get symbol
+			decimal = erc_20.functions.decimals().call()						# get decimal
+			assist.add_smart_contract_token(w3.eth.chain_id, sc_addr, symbol, decimal)		# add it
+		except (BadFunctionCallOutput, ABIFunctionNotFound):
+			erc_20 = fetch_erc20_details(w3, sc_addr)				# get connection and add the token
+			assist.add_smart_contract_token(w3.eth.chain_id, sc_addr, erc_20.symbol, erc_20.decimals, erc_20.contract.abi)
+
+
 def transaction_sender(w3: Web3, sender: Wallet, receivers: list | Wallet, value) -> list:
 	"""
 	Sends asset from 1 wallet to N others wallets chosen amount.
@@ -79,15 +109,44 @@ def transaction_sender(w3: Web3, sender: Wallet, receivers: list | Wallet, value
 		receivers = [receivers]				# with 1 Wallet
 
 	txs = list()
-	length = len(receivers)
 
-	for i in range(length):				# for each receiver send transaction
+	for i in range(len(receivers)):		# for each receiver send transaction
 		tx = compose_native_transaction(w3, sender, sender.nonce + i,
 										receivers[i], value)
 		txs.append(tx)					# add tx
 
 	threads.start_todo(update_txs, True, w3, txs)
 	return txs
+
+
+def transaction_sender_erc20(w3: Web3, erc20, token: Token, sender: Wallet, receivers: list, amount) -> list:
+	txs = list()
+	nonce = sender.nonce
+
+	for i in range(len(receivers)):
+		tx_hash = send_erc20(w3, erc20, sender.addr, sender.key(), nonce+i, receivers[i].addr, amount)
+		txs.append(Transaction(w3.eth.chain_id, time.time(), receivers[i], sender,
+							   str(convert_to_normal_view(amount, token.decimal)), tx_hash, token.symbol, token.sc_addr))
+
+	threads.start_todo(update_txs, True, w3, txs)
+	return txs
+
+
+
+def send_erc20(w3: Web3, erc20, sender: str, sender_key: str, nonce, receiver: str, amount):
+	tx_dict = {
+		"from": sender,
+		"chainId": w3.eth.chain_id,
+		"nonce": nonce,
+		"maxFeePerGas": manager.Manager.gas_price,
+		"maxPriorityFeePerGas": manager.Manager.max_priority,
+		"type": 2,
+		"gas": 215840,
+	}
+	raw_tx = erc20.functions.transfer(receiver, amount).build_transaction(tx_dict)
+	signed = w3.eth.account.sign_transaction(raw_tx, sender_key)
+	tx_hash = w3.eth.send_raw_transaction(signed.rawTransaction)
+	return w3.toHex(tx_hash)  # return TX
 
 
 def compose_native_transaction(w3: Web3, sender: Wallet, nonce, receiver: Wallet, value) -> Transaction:
@@ -104,8 +163,8 @@ def compose_native_transaction(w3: Web3, sender: Wallet, nonce, receiver: Wallet
 			"from": sender.addr,
 			"to": receiver.addr,
 			"gas": 21000,
-			"maxFeePerGas": services.manager.Manager.gas_price,
-			"maxPriorityFeePerGas": services.manager.Manager.max_priority,
+			"maxFeePerGas": manager.Manager.gas_price,
+			"maxPriorityFeePerGas": manager.Manager.max_priority,
 			"value": value,
 			"data": b'',
 			"nonce": nonce,
@@ -122,7 +181,7 @@ def compose_native_transaction(w3: Web3, sender: Wallet, nonce, receiver: Wallet
 			"to": receiver.addr,
 			"nonce": sender.nonce,
 			"gas": 21000,
-			"gasPrice": services.manager.Manager.gas_price,
+			"gasPrice": manager.Manager.gas_price,
 			"value": value,
 			"chainId": chain_id
 		}
@@ -130,7 +189,7 @@ def compose_native_transaction(w3: Web3, sender: Wallet, nonce, receiver: Wallet
 	finally:
 		logs.pr_trans("compose_transaction_and_send: successfully sent")
 
-	return Transaction(chain_id, time.time(), receiver, sender, value, tx_hash)
+	return Transaction(chain_id, time.time(), receiver, sender, str(w3.fromWei(value, "ether")), tx_hash)
 
 
 def send_native_coin(w3: Web3, tx: dict, key) -> str:
@@ -151,14 +210,14 @@ def send_native_coin(w3: Web3, tx: dict, key) -> str:
 def update_txs(w3: Web3, txs_list: list):
 	for tx in txs_list:											# for all txs
 		if threads.can_create_daemon():							# if we can create daemon
-			threads.start_todo(update_tx, True, w3, tx)		# create to do update_tx()
+			threads.start_todo(update_tx, True, w3, tx)			# create to do update_tx()
 		else:
 			time.sleep(settings.wait_to_create_daemon_again)	# or wait
 
 
 def update_tx(w3: Web3, tx: Transaction):
 	if tx.status is None:										# if no status
-		receipt = w3.eth.wait_for_transaction_receipt(tx.tx)  # wait for the result
+		receipt = w3.eth.wait_for_transaction_receipt(tx.tx)  	# wait for the result
 		if receipt["status"] == 0:								# and change it
 			tx.status = "Fail"
 		else:
