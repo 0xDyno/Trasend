@@ -67,8 +67,8 @@ class Wallet:
 
 
 class Transaction:
-    def __init__(self, chain_id: int, time: float, receiver: Wallet,
-                 sender: Wallet, value: str, tx: str, token=None, sc_addr: str = None):
+    def __init__(self, chain_id: int, time: float, receiver: Wallet | str,
+                 sender: Wallet | str, value: str, tx: str, token=None, sc_addr: str = None):
         """
         :param chain_id: chain_id
         :param time: usual time is secs
@@ -94,8 +94,11 @@ class Transaction:
         self.sender = sender.addr                       #_5 from
         self.value = value                              #_6 value
         self.tx = tx                                    #_7 transaction hash
-        receiver.txs.append(self)
-        sender.txs.append(self)
+
+        if isinstance(receiver, Wallet):
+            receiver.txs.append(self)
+        if isinstance(sender, Wallet):
+            sender.txs.append(self)
 
     def __str__(self):
         return settings.chain_name[self.chain_id] + " >> " + self.str_no_bc()

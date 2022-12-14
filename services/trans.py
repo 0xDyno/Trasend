@@ -95,34 +95,46 @@ def update_erc_20(w3: Web3, sc_addr):
 			assist.add_smart_contract_token(w3.eth.chain_id, sc_addr, erc_20.symbol, erc_20.decimals, erc_20.contract.abi)
 
 
-def transaction_sender(w3: Web3, sender: Wallet, receivers: list | Wallet, value) -> list:
+def transaction_sender(w3: Web3, sender: Wallet, receivers: list, value) -> list:
 	"""
 	Sends asset from 1 wallet to N others wallets chosen amount.
 	If Amount = 2 and 20 receivers, then will be sent 2*20 = 40 units
 	"""
-	if isinstance(receivers, Wallet):		# if it's Wallet - make list
-		receivers = [receivers]				# with 1 Wallet
-
 	txs = list()
+	receiver_addrs = list()
+	for receiver in receivers:
+		if isinstance(receiver, Wallet):
+			receiver_addrs.append(receiver.addr)
+		else:
+			receiver_addrs.append(receiver)
 
-	for i in range(len(receivers)):		# for each receiver send transaction
-		assist.create_progress_bar(i, len(receivers))
-		tx = compose_native_transaction(w3, sender, sender.nonce + i,
-										receivers[i], value)
-		txs.append(tx)					# add tx
+	for i in range(len(receiver_addrs)):		# for each receiver send transaction
+		assist.create_progress_bar(i, len(receiver_addrs))
+		tx_hash = compose_native_transaction(w3, sender, sender.nonce + i, receiver_addrs[i], value)
+
+		txs.append(Transaction(w3.eth.chain_id, time.time(), receivers[i], sender,
+							   str(w3.fromWei(value, "ether")), tx_hash))					# add tx
 
 	threads.start_todo(update_txs, True, w3, txs)
 	return txs
 
 
 def transaction_sender_erc20(w3: Web3, erc20, token: Token, sender: Wallet, receivers: list, amount) -> list:
+	"""Receive list with receivers as Wallets, but work as str-address. That made for purpose to send TXs not
+	only to Wallets in the system. But for TXs creation give Wallets, to add TXs to the list if it's Wallet obj"""
 	txs = list()
-	nonce = sender.nonce
+	receiver_addrs = list()
+	nonce = sender.nonce						# get only addresses, no objects from receiver
+	for receiver in receivers:
+		if isinstance(receiver, Wallet):
+			receiver_addrs.append(receiver.addr)
+		else:
+			receiver_addrs.append(receiver)
 
+	for i in range(len(receiver_addrs)):
+		assist.create_progress_bar(i, len(receiver_addrs))
+		tx_hash = send_erc20(w3, erc20, sender.addr, sender.key(), nonce+i, receiver_addrs[i], amount)
 
-	for i in range(len(receivers)):
-		assist.create_progress_bar(i, len(receivers))
-		tx_hash = send_erc20(w3, erc20, sender.addr, sender.key(), nonce+i, receivers[i].addr, amount)
 		txs.append(Transaction(w3.eth.chain_id, time.time(), receivers[i], sender,
 							   str(convert_to_normal_view(amount, token.decimal)), tx_hash, token.symbol, token.sc_addr))
 
@@ -159,7 +171,7 @@ def compose_native_transaction(w3: Web3, sender: Wallet, nonce, receiver: Wallet
 		logs.pr_trans("compose_transaction_and_send: try to send transaction, type #2")
 		tx = {
 			"from": sender.addr,
-			"to": receiver.addr,
+			"to": receiver,
 			"gas": 21000,
 			"maxFeePerGas": manager.Manager.gas_price,
 			"maxPriorityFeePerGas": manager.Manager.max_priority,
@@ -176,7 +188,7 @@ def compose_native_transaction(w3: Web3, sender: Wallet, nonce, receiver: Wallet
 		logs.pr_trans("compose_transaction_and_send: Fail")
 		logs.pr_trans("compose_transaction_and_send: try to send transaction no-type")
 		tx = {
-			"to": receiver.addr,
+			"to": receiver,
 			"nonce": sender.nonce,
 			"gas": 21000,
 			"gasPrice": manager.Manager.gas_price,
@@ -187,7 +199,7 @@ def compose_native_transaction(w3: Web3, sender: Wallet, nonce, receiver: Wallet
 	finally:
 		logs.pr_trans("compose_transaction_and_send: successfully sent")
 
-	return Transaction(chain_id, time.time(), receiver, sender, str(w3.fromWei(value, "ether")), tx_hash)
+	return tx_hash
 
 
 def send_native_coin(w3: Web3, tx: dict, key) -> str:
