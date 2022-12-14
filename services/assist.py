@@ -72,8 +72,8 @@ def generate_label(set_with_labels):
 
 
 def ask_label(set_with_labels: set):
-	min_ = settings.min_label_length
-	max_ = settings.max_label_length
+	min_ = settings.label_min_length
+	max_ = settings.label_max_length
 	while True:
 		label = input(texts.ask_label).strip()
 		if not label:									# If empty - generate number

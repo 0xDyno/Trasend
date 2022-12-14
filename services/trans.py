@@ -93,7 +93,7 @@ def transaction_sender(w3: Web3, sender: Wallet, receivers: list | Wallet, value
 def compose_native_transaction(w3: Web3, sender: Wallet, nonce, receiver: Wallet, value) -> Transaction:
 	"""
 	Tries to send transaction with the last ETH updates. But it won't work for networks that didn't update
-	So I wrote also second variant to send transaction
+	So I wrote also second variant to send transaction, that happens when we receive an error
 	:return: transaction hash, string
 	"""
 	chain_id = w3.eth.chain_id

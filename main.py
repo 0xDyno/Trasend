@@ -4,7 +4,6 @@ from config import texts
 from services.manager import Manager
 from services.trans import print_gas_price_info
 from services import assist
-from config.settings import max_generate_addr
 from config.keys import HTTPS_GOERLI, HTTPS_ETH
 
 from web3 import Web3

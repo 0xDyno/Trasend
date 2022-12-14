@@ -1,4 +1,4 @@
-from config.settings import private_key_length, min_label_length, max_label_length
+from config.settings import private_key_length, label_min_length, label_max_length
 
 """For Main"""			#################################################
 instruction_main = """Print number:
@@ -26,6 +26,7 @@ wrong_command_main = "Wrong command. If you need instruction - print h"
 # General
 no_wallets = "No wallets"
 no_txs = "No TXs"
+no_tokens = "No Tokens"
 exited = "\tExited to main menu"
 success = "Success"
 fail = "Fail"
@@ -33,11 +34,13 @@ fail = "Fail"
 trying_connect = "Trying to connect RPC point (node)..."
 
 # Text to initialize in method __new__:
-error_chain_not_supported = "Chain {} is not supported yet."
 connected_to_rpc = "\t>>> ChainId = {}, {}"
+error_chain_not_supported = "Chain {} is not supported yet."
 loading_wallets = "\tLoading the wallets into the system..."
+loading_tokens = "\tLoading the tokens into the system..."
 loading_txs = "\tLoading the txs into the system..."
 no_wallets_to_load = no_wallets + " to load into the system."
+no_tokens_to_load = no_tokens + " to load into the system."
 no_txs_to_load = no_txs + " to load into the system."
 init_files = "\tInitialize addition system files..."
 init_finished = "Init is finished."
@@ -48,7 +51,7 @@ added_wallet = "Successfully added the wallet: {}"
 error_not_private_key = f"\tError, it isn't private key. " \
 						 f"Key should start with 0x and Length should be {str(private_key_length)}"
 error_wallet_exist_with_label = "Error, the key is already added to the system with the label: \"{}\""
-ask_label = f"Only letters and numbers, min length = {min_label_length}, max length = {max_label_length}. " \
+ask_label = f"Only letters and numbers, min length = {label_min_length}, max length = {label_max_length}. " \
 			"Leave empty to get random.\nWrite desired label >>> "
 label_wrong_length = "\tWrong length, should be from {} to {}, got {}."
 label_wrong_letters = "\tOnly letters, number, spaces and underline '_', no !.,*@&#)!%"
