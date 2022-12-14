@@ -28,15 +28,19 @@ gas_multiplier = 2				# to multiply gas price (paid only for used gwei, other re
 priority_multiplier = 1.5		# to multiply priority (will be paid full price 100%)
 min_priority = 0.1				# what min_priority, in gwei
 min_gas = 1						# mit gas price, in gwei
+tx_slash = "tx/"
 chain_explorers = {
-	1: "https://etherscan.io/tx/",
-	5: "https://goerli.etherscan.io/tx/"
+	1: "https://etherscan.io/",
+	5: "https://goerli.etherscan.io/",
+	56: "https://bscscan.com/"
 }
 chain_default_coin = {
 	1: "ETH",
-	5: "ETH"
+	5: "ETH",
+	56: "BNB"
 }
 chain_name = {
 	1: "ETH mainnet",
-	5: "Goerli ETH testnet"
+	5: "Goerli ETH testnet",
+	56: "BNB mainnet"
 }

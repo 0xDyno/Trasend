@@ -2,7 +2,7 @@ from datetime import datetime
 import webbrowser
 
 from config import texts
-from config.settings import chain_explorers, chain_default_coin, chain_name
+from config.settings import chain_explorers, chain_default_coin, chain_name, tx_slash
 from web3 import Web3
 
 
@@ -58,7 +58,7 @@ class Wallet:
             sender_or_receiver = "from " + tx.sender
         else:
             sender_or_receiver = "to " + tx.receiver
-        link = chain_explorers[tx.chain_id] + tx.tx      # get explorer + tx = link
+        link = chain_explorers[tx.chain_id] + tx_slash + tx.tx      # get explorer + tx = link
         blockchain = chain_name[tx.chain_id]
 
         format_ = "({blockchain}) {status}: {tx_type} {value} {token} {sender_or_receiver} on {date} ({link})"
@@ -106,7 +106,7 @@ class Transaction:
     def str_no_bc(self):
         """Returns text with no BlockChain info"""
         string = "From {sender} sent {amount} {token} to {receiver} on {date}\n\t\t{status}, link: {link}"
-        link = chain_explorers[self.chain_id] + self.tx
+        link = chain_explorers[self.chain_id] + tx_slash + self.tx
         return string.format(sender=self.sender, amount=Web3.fromWei(self.value, "ether"), token=self.which_token,
                            receiver=self.receiver, date=self.get_time(), status=self.status, link=link)
 
