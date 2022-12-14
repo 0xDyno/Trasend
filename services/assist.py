@@ -9,7 +9,7 @@ from random import random
 from datetime import date
 
 from config import settings, texts
-from services.classes import Wallet
+from services.classes import Wallet, Token
 from services import threads, trans, manager
 
 
@@ -185,6 +185,32 @@ def update_txs_for_wallet(wallet):
 		for tx in manager.Manager.all_txs:
 			if wallet.addr == tx.receiver or wallet.addr == tx.sender:
 				wallet.txs.append(tx)
+
+
+def check_smart_contract_saved(chain_id, sc_addr) -> bool:
+	"""Checks that we have smart contract info in correct chain"""
+	tokens_set = manager.Manager.dict_sc_addr.get(chain_id)
+	if not tokens_set:  			# get set with correct chain id
+		return False				# if empty = no tokens
+	if sc_addr not in tokens_set:  	# if not in set - False
+		return False
+	return True
+
+
+def get_smart_contract_if_have(chain_id, sc_addr) -> Token | bool:
+	"""Check if the tokens exists in the system and returns it, otherwise returns False"""
+	if check_smart_contract_saved(chain_id, sc_addr):
+		for token in manager.Manager.all_tokens:
+			if token.chain_id == chain_id and token.sc_addr == sc_addr:
+				return token
+	return False
+
+
+def add_smart_contract_token(chain_id: int, sc_addr: str, symbol: str, decimal: int, abi="default"):
+	if check_smart_contract_saved(chain_id, sc_addr):					# if new one
+		new_token = Token(chain_id, sc_addr, symbol, decimal, abi)		# create Token
+		manager.Manager.dict_sc_addr.get(chain_id).add(sc_addr)			# add addr to addr_set in correct chain if
+		manager.Manager.all_tokens.add(new_token)						# and add Obj to global set
 
 
 def check_saveloads_files(folder: str, path_to_file: str):

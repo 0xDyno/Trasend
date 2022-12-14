@@ -1,8 +1,7 @@
 from datetime import datetime
 import webbrowser
 
-from config import texts
-from config.settings import chain_explorers, chain_default_coin, chain_name, tx_slash, address_length
+from config import texts, settings
 from web3 import Web3
 
 
@@ -58,8 +57,8 @@ class Wallet:
             sender_or_receiver = "from " + tx.sender
         else:
             sender_or_receiver = "to " + tx.receiver
-        link = chain_explorers[tx.chain_id] + tx_slash + tx.tx      # get explorer + tx = link
-        blockchain = chain_name[tx.chain_id]
+        link = settings.chain_explorers[tx.chain_id] + settings.tx_slash + tx.tx      # get explorer + tx = link
+        blockchain = settings.chain_name[tx.chain_id]
 
         format_ = "({blockchain}) {status}: {tx_type} {value} {token} {sender_or_receiver} on {date} ({link})"
 
@@ -81,10 +80,10 @@ class Transaction:
         :param sc_addr: smart contract address for ERC-20
         """
         if token is None:
-            self.symbol = chain_default_coin[chain_id]
+            self.symbol = settings.chain_default_coin[chain_id]
         else:
             self.symbol = token
-            if sc_addr is None or not sc_addr.startswith("0x") or len(sc_addr) != address_length:
+            if sc_addr is None or not sc_addr.startswith("0x") or len(sc_addr) != settings.address_length:
                 raise TypeError("Can't create TX, wrong Smart-Contract Address: ", sc_addr)
             self.address = sc_addr
 
@@ -99,12 +98,12 @@ class Transaction:
         sender.txs.append(self)
 
     def __str__(self):
-        return chain_name[self.chain_id] + " >> " + self.str_no_bc()
+        return settings.chain_name[self.chain_id] + " >> " + self.str_no_bc()
 
     def str_no_bc(self):
         """Returns text with no BlockChain info"""
         string = "From {sender} sent {amount} {token} to {receiver} on {date}\n\t\t{status}, link: {link}"
-        link = chain_explorers[self.chain_id] + tx_slash + self.tx
+        link = settings.chain_explorers[self.chain_id] + settings.tx_slash + self.tx
         return string.format(sender=self.sender, amount=Web3.fromWei(self.value, "ether"), token=self.symbol,
                              receiver=self.receiver, date=self.get_time(), status=self.status, link=link)
 
@@ -122,12 +121,13 @@ class Transaction:
         return str(datetime.strftime(self.date, "%d.%m.%Y %H:%M:%S"))
 
     def open_explorer(self):
-        webbrowser.open(chain_explorers[self.chain_id] + self.tx)
+        webbrowser.open(settings.chain_explorers[self.chain_id] + self.tx)
 
 
 class Token:
-    def __init__(self, chain_id: int, sc_addr: str, symbol: str, decimal: int, abi):
-        if sc_addr is None or not sc_addr.startswith("0x") or len(sc_addr) != address_length:
+    def __init__(self, chain_id: int, sc_addr: str, symbol: str, decimal: int, abi="default"):
+        """If ABI is "default" - use default ABI from settings"""
+        if sc_addr is None or not sc_addr.startswith("0x") or len(sc_addr) != settings.address_length:
             raise TypeError("Can't create TX, wrong Smart-Contract Address: ", sc_addr)
         self.chain_id = chain_id
         self.sc_addr = sc_addr
@@ -136,6 +136,12 @@ class Token:
         self.abi = abi
 
     def __str__(self):
-        chain = chain_default_coin[self.chain_id]
+        chain = settings.chain_default_coin[self.chain_id]
         format_ = "({chain}) {sym} - {addr} - {dec}"
         return format_.format(chain, self.symbol, self.sc_addr, self.decimal)
+
+    def get_abi(self):
+        if self.abi == "default":
+            return settings.ABI
+        else:
+            return self.abi
