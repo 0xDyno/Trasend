@@ -1,26 +1,14 @@
 from config.settings import private_key_length, label_min_length, label_max_length
 
 """For Main"""			#################################################
-instruction_main = """Print number:
-Show
-	1 		Wallets
-	1a 		Wallets + transactions
-	1t		Transactions
-	1at		All Txs for 1 Address
-Add wallets
-	2		Add
-	2g 		Generate wallets
-Delete wallets
-	3		Delete wallets
-	3a		Delete all wallets
-	3t		Delete all TXs history
-Send transaction (main coin)
-	4		Send native (ETH)
-	4a		Send native to All	(not imp)
-	4e 		Send ERC-20 		(not imp)
-	4ea 	Send ERC-20 to All	(not imp)
-Other functions:
-upd - update wallets | 01 - last block info | 02 - check connection | 03 - gas info | t - tests | e - exit"""
+instruction_main = """--------------------------------------------------- Show ----------------------------------------------------
+	 1  Wallets            1a  Wallets + TXs          1t  Transactions          1at  All Txs for 1 Address
+----------------------------------------------- Add wallets -------------------------------------------------
+	 2  Add Wallet         2g  Generate wallets
+-------------------------------------------------- Delete ---------------------------------------------------
+	 3  Selected wallets   3a  All wallets            3t All TXs history        4 Send ETH / ERC-20
+
+  upd - update wallets | 01 - last block info | 02 - check connection | 03 - gas info | t - tests | e - exit"""
 wrong_command_main = "Wrong command. If you need instruction - print h"
 
 # General

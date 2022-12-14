@@ -433,41 +433,6 @@ class Manager:
 		[Manager.all_txs.append(tx) for tx in txs if tx not in Manager.all_txs]
 		[print(tx) for tx in txs]
 
-	# def try_send_transaction(self):
-	# 	assert self.wallets, texts.no_wallets							# Print wallets and ask
-	# 	sender_text = self.print_ask(text_before="Choose wallet to send:", text_in_input="From which send: ")
-	# 	sender = self.get_wallet_by_text(sender_text)						# Get that wallet
-	#
-	# 	daemon = threads.start_todo(self.update_wallet, True, sender)		# Start daemon to update addr
-	#
-	# 	receiver_text = self.print_ask(text_in_input="To which send: ", print_wallets=False)
-	# 	receiver = self.get_wallet_by_text(receiver_text)				# get receiver
-	#
-	# 	amount = self.print_ask(text_in_input="Write the amount: ", print_wallets=False)
-	# 	amount = self.w3.toWei(amount, "ether")							# and amount
-	# 	daemon.join()													# wait for daemon to finish
-	# 									# returns list, but we have only 1 tx
-	# 	tx = trans.transaction_sender(self.w3, sender, receiver, amount)[0]
-	# 	Manager.all_txs.append(tx)		# add tx
-	# 	print(tx)						# print
-
-	def try_send_to_all(self):
-		assert self.wallets, texts.no_wallets
-
-		sender_raw = self.print_ask(text_after="From which wallet to send?")	# get input
-		sender_index = self.get_wallet_index_by_text(sender_raw)				# get sender index
-
-		receivers = self.wallets.copy()											# copy wallet list
-		sender = receivers.pop(sender_index)									# get sender and delete from list
-		daemon = threads.start_todo(self.update_wallet, True, sender)			# start daemon to update sender info
-
-		amount = self.w3.toWei(input("How much send to each: "), "ether")
-
-		if trans.print_price_and_confirm(self.chain_id, value=amount, receivers=receivers):
-			daemon.join()
-			txs = trans.transaction_sender(self.w3, sender, receivers, amount)	# send txs
-			[Manager.all_txs.append(tx) for tx in txs if tx not in Manager.all_txs]	# add to lis
-			[print(tx) for tx in txs]
 
 	def update_wallets(self):
 		assert self.wallets, texts.no_wallets

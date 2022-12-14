@@ -10,10 +10,10 @@ from web3 import Web3
 
 
 def main():
-    print("\n%s\n---------------------" % texts.instruction_main)
+    print("\n%s\n" % texts.instruction_main)
     while True:
         try:
-            text = input().lower().strip()
+            text = input("  >>> ").lower().strip()
             match text:
                 case "1":                                                                   # Show all wallets
                     m.print_wallets()
@@ -39,13 +39,6 @@ def main():
                         print(texts.success)
                 case "4":                                                                   # Send transaction (native)
                     m.try_send_transaction()
-                case "4a":                                                                  # Send to All (native)
-                    # m.try_send_to_all()
-                    pass
-                case "4e":                              # to implement Send ERC-20
-                    pass
-                case "4ea":                             # to implement Send ETC-20 to All
-                    pass
                 case "5":                                                                   # empty
                     pass
                 case "upd":                                                                 # last block info
