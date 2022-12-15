@@ -1,6 +1,4 @@
 # Import my files
-from decimal import Decimal
-
 from config import texts, settings
 from services.classes import Wallet, Token
 from services import assist, trans, threads, logs
@@ -8,6 +6,46 @@ from services import assist, trans, threads, logs
 # Import third-party files
 from web3 import Web3
 import time
+
+
+def _save_tokens():
+	assist.save_data(Manager.all_tokens, settings.folder, settings.saved_tokens)
+
+
+def _load_tokens():
+	print(texts.loading_tokens, end=" ")  		# Start
+	loaded_data = assist.load_data(settings.folder, settings.saved_tokens)
+	if loaded_data is None:
+		print(texts.no_tokens_to_load)  		# End - Tell no tokens to load
+	else:
+		Manager.all_tokens = loaded_data
+		print(texts.success)  					# End - Success
+
+
+def _save_txs():
+	assist.save_data(Manager.all_txs, settings.folder, settings.saved_txs)
+
+
+def _load_txs():
+	print(texts.loading_txs, end=" ")  			# Start
+	loaded_data = assist.load_data(settings.folder, settings.saved_txs)
+	if loaded_data is None:
+		print(texts.no_txs_to_load)  			# End - Tell no txs to load
+	else:
+		Manager.all_txs = loaded_data
+		print(texts.success)  					# End - Success
+
+
+def _initialize_dict():
+	"""Init dict with sc_addrs, where key -> chain number, value -> set with addresses"""
+	for chain_id in settings.chain_name.keys():		# create list for every chain
+		Manager.dict_sc_addr[chain_id] = set()
+
+	if not Manager.all_tokens:
+		return
+
+	for token in Manager.all_tokens:				# get correct set (correct chain id) and add
+		Manager.dict_sc_addr[token.chain_id].add(token.sc_addr)		# smart contract to it
 
 
 class Manager:
@@ -56,15 +94,15 @@ class Manager:
 			self.last_block = None  	# updates every N secs by daemon
 
 			self._load_wallets()		# Load addresses
-			self._load_txs()			# Load Txs
-			self._load_tokens()			# Load Tokens
+			_load_txs()			# Load Txs
+			_load_tokens()			# Load Tokens
 
 			# Init sets if there are wallets
 			if self.wallets:
 				print(texts.init_files, end=" ")
 				self.update_wallets()
 				self._initialize_sets()
-				self._initialize_dict()
+				_initialize_dict()
 			print(texts.init_finished)
 
 			# Start a demon to regularly update info (last block)
@@ -96,17 +134,6 @@ class Manager:
 		(if this wallet related to tx - adds tx into wallet's list)"""
 		for wallet in self.wallets:
 			assist.update_txs_for_wallet(wallet)
-
-	def _initialize_dict(self):
-		"""Init dict with sc_addrs, where key -> chain number, value -> set with addresses"""
-		for chain_id in settings.chain_name.keys():		# create list for every chain
-			Manager.dict_sc_addr[chain_id] = set()
-
-		if not Manager.all_tokens:
-			return
-
-		for token in Manager.all_tokens:				# get correct set (correct chain id) and add
-			Manager.dict_sc_addr[token.chain_id].add(token.sc_addr)		# smart contract to it
 
 	def _add_to_sets(self, wallet):
 		"""Adds new wallet to sets if there's no such wallet.
@@ -236,12 +263,6 @@ class Manager:
 	def _save_wallets(self):
 		assist.save_data(self.wallets, settings.folder, settings.saved_wallets)
 
-	def _save_txs(self):
-		assist.save_data(Manager.all_txs, settings.folder, settings.saved_txs)
-
-	def _save_tokens(self):
-		assist.save_data(Manager.all_tokens, settings.folder, settings.saved_tokens)
-
 	def _load_wallets(self):
 		print(texts.loading_wallets, end=" ")  		# Start
 		loaded_data = assist.load_data(settings.folder, settings.saved_wallets)
@@ -251,25 +272,7 @@ class Manager:
 			self.wallets = loaded_data
 			print(texts.success)  					# End - Success
 
-	def _load_txs(self):
-		print(texts.loading_txs, end=" ")  			# Start
-		loaded_data = assist.load_data(settings.folder, settings.saved_txs)
-		if loaded_data is None:
-			print(texts.no_txs_to_load)  			# End - Tell no txs to load
-		else:
-			Manager.all_txs = loaded_data
-			print(texts.success)  					# End - Success
-
-	def _load_tokens(self):
-		print(texts.loading_tokens, end=" ")  		# Start
-		loaded_data = assist.load_data(settings.folder, settings.saved_tokens)
-		if loaded_data is None:
-			print(texts.no_tokens_to_load)  		# End - Tell no tokens to load
-		else:
-			Manager.all_tokens = loaded_data
-			print(texts.success)  					# End - Success
-
-###################################################################################################
+	###################################################################################################
 # Default methods #################################################################################
 ###################################################################################################
 
@@ -587,7 +590,7 @@ class Manager:
 ###################################################################################################
 
 	def finish_work(self):
-		self._save_txs()					# Save TXs
-		self._save_tokens()				# Save Tokens
+		_save_txs()					# Save TXs
+		_save_tokens()				# Save Tokens
 		self.delete_txs_history()	# Delete tx_list +
 		self._save_wallets()		# Save wallets
