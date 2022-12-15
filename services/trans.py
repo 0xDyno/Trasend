@@ -1,9 +1,9 @@
 import time
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 
-from web3.exceptions import BadFunctionCallOutput, ABIFunctionNotFound, ValidationError
+from web3.exceptions import BadFunctionCallOutput, ABIFunctionNotFound
 from services.classes import *
-from services import threads, logs, assist, manager
+from services import threads, assist, manager
 from eth_defi.token import fetch_erc20_details
 from web3 import Web3
 
@@ -23,12 +23,12 @@ def print_gas_price_info():
 		return
 	gas = Web3.fromWei(manager.Manager.gas_price, "gwei")
 	priority = Web3.fromWei(manager.Manager.max_priority, "gwei")
-	network_gas = float(Web3.fromWei(manager.Manager.network_gas_price, "gwei")) / settings.gas_multiplier
-	network_priority = float(Web3.fromWei(manager.Manager.network_max_priority, "gwei")) / settings.priority_multiplier
+	network_gas = float(Web3.fromWei(manager.Manager.network_gas_price, "gwei")) / settings.xmultiply_gas_price
+	network_priority = float(Web3.fromWei(manager.Manager.network_max_priority, "gwei")) / settings.multiply_priority
 
 	current_gas = "Current state: gas = {:.02f} gwei, priority = {} gwei (live {:.2f}, {:.2f}) | " \
 		"settings: min gas = {} <> min prior = {}".format(gas, priority, network_gas, network_priority,
-														  settings.min_gwei, settings.min_priority_gwei)
+														  settings.min_gas_price, settings.min_priority)
 
 	print(current_gas)
 
@@ -55,11 +55,18 @@ def print_price_and_confirm_native(chain_id, value, receivers: int) -> bool:
 	return assist.confirm(print_before=ask)
 
 
-def print_price_and_confirm_erc20(token: Token, amount, receivers: int) -> bool:
+def print_price_and_confirm_erc20(token: Token, erc20, sender, receivers: int, amount) -> bool:
 	symb = token.symbol
 	coin = settings.chain_default_coin[token.chain_id]
-	base_fee = manager.Manager.network_gas_price * settings.average_gas_erc20
-	max_fee = (manager.Manager.gas_price + manager.Manager.max_priority) * settings.gas_erc20
+
+	try:		# Count Base & Max fee from Estimated gas * multiplier
+		gas = int(erc20.functions.transfer(sender.addr, amount).estimateGas() * settings.multiply_gas)
+		base_fee = manager.Manager.network_gas_price * gas
+		max_fee = (manager.Manager.gas_price + manager.Manager.max_priority) * gas
+	except Exception as e:		# If we can't do it by some reason - use default settings
+		print("Failed to get live gas required, use the settings. Error: " + e)
+		base_fee = manager.Manager.network_gas_price * settings.average_gas_erc20
+		max_fee = (manager.Manager.gas_price + manager.Manager.max_priority) * settings.gas_erc20
 
 	amount = convert_to_normal_view(amount, token.decimal)
 	total_send = amount * receivers
@@ -115,16 +122,16 @@ def send_erc20_or(w3: Web3) -> bool | str:
 	raise InterruptedError(texts.exited)
 
 
-def get_amount_for_erc20(erc_20, token: Token, sender: Wallet, receivers: int) -> int:
+def get_amount_for_erc20(erc20, token: Token, sender: Wallet, receivers: int) -> int:
 	"""Checks balance and ask how much to send to each. Return amount for EVM with decimal counted
 	:return: amount to send (if 0.01 and dec 6 -> that's 1000)"""
-	balance_raw = erc_20.functions.balanceOf(sender.addr).call()				# check balance and print it
+	balance_raw = erc20.functions.balanceOf(sender.addr).call()				# check balance and print it
 	balance = Decimal(convert_to_normal_view(balance_raw, token.decimal))
 	print("> Balance is >> {:.2f}".format(balance))
 	print("> Minimum for", token.symbol, "is", convert_to_normal_view_str(token.decimal))
 	wish_send = input("How much you want to send to each? >> ").strip().lower()	# ask to write amount to send
 
-	assist.check_balances(wish_send, balance, receivers)
+	assist.check_balances(balance, wish_send, receivers)
 	return convert_for_machine(Decimal(wish_send), token.decimal)
 
 
@@ -196,13 +203,13 @@ def update_erc_20(w3: Web3, sc_addr):
 	"""If we don't have that contrat in the system - do connection, get info and save new Token to the system"""
 	if not assist.is_contract_exist(w3.eth.chain_id, sc_addr):
 		try:
-			erc_20 = w3.eth.contract(address=sc_addr, abi=settings.ABI)			# get erc_20 connection
-			symbol = erc_20.functions.symbol().call()							# get symbol
-			decimal = erc_20.functions.decimals().call()						# get decimal
-			assist.add_smart_contract_token(w3.eth.chain_id, sc_addr, symbol, decimal)		# add it
-		except (BadFunctionCallOutput, ABIFunctionNotFound):
-			erc_20 = fetch_erc20_details(w3, sc_addr)				# get connection and add the token
-			assist.add_smart_contract_token(w3.eth.chain_id, sc_addr, erc_20.symbol, erc_20.decimals, erc_20.contract.abi)
+			erc20 = w3.eth.contract(address=sc_addr, abi=settings.ABI)		# get erc20 connection
+			symbol = erc20.functions.symbol().call()						# get symbol
+			decimal = erc20.functions.decimals().call()						# get decimal and add
+			assist.add_smart_contract_token(w3.eth.chain_id, sc_addr, symbol, decimal)
+		except (BadFunctionCallOutput, ABIFunctionNotFound):		# Longer + Not So Safe
+			erc20 = fetch_erc20_details(w3, sc_addr)				# get connection and add the token
+			assist.add_smart_contract_token(w3.eth.chain_id, sc_addr, erc20.symbol, erc20.decimals, erc20.contract.abi)
 
 
 

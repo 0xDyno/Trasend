@@ -26,12 +26,15 @@ wait_to_create_daemon_again = 1		# If no free place to create a daemon - it will
 
 """Transactions"""		#################################################
 print_trans_info = False		# prints info when does a transaction
-gas_multiplier = 1.2			# to multiply gas price (paid only for used gwei, other returns)
-priority_multiplier = 1.5		# to multiply priority (will be paid full price 100%)
+multiply_gas = 1.1				# Multiply counted gas (won't be used more, then required)
+multiply_gas_price = 1.2		# to multiply gas price (won't be used more, then required)
+multiply_priority = 1.5			# to multiply priority (will be paid full price 100%)
 
-min_priority_gwei = 2			# what min_priority, in gwei
-min_gwei = 10					# min gas price, in gwei
-gas_native = 21000				#
+# If current GasPrice * MultiplyGasPrice < than minimum - then will be used min
+min_gas_price = 10				# in gwei
+min_priority = 2				# in gwei
+gas_native = 21000
+# gas and average gas for erc20 - just in case estimating didn't work.
 gas_erc20 = 100000				# max gas to send ETC20 token
 average_gas_erc20 = 60000		# average gas required to send TX
 

@@ -246,14 +246,14 @@ class Manager:
 			Manager.network_gas_price = self.w3.eth.gas_price
 			Manager.network_max_priority = self.w3.eth.max_priority_fee
 
-			Manager.gas_price = int(Manager.network_gas_price * settings.gas_multiplier)
-			Manager.max_priority = int(Manager.network_max_priority * settings.priority_multiplier)
+			Manager.gas_price = int(Manager.network_gas_price * settings.multiply_gas_price)
+			Manager.max_priority = int(Manager.network_max_priority * settings.multiply_priority)
 
-			min_gas = Web3.toWei(settings.min_gwei, "gwei")		# change gas to min if current < min
+			min_gas = Web3.toWei(settings.min_gas_price, "gwei")		# change gas to min if current < min
 			if Manager.gas_price < min_gas:
 				Manager.gas_price = min_gas
 
-			min_priority = Web3.toWei(settings.min_priority_gwei, "gwei")	# same with priority
+			min_priority = Web3.toWei(settings.min_priority, "gwei")	# same with priority
 			if Manager.max_priority < min_priority:
 				Manager.max_priority = min_priority
 
@@ -403,11 +403,11 @@ class Manager:
 		# Get balance if we need and show
 		if it_is_erc20:		# sc logic
 			token: Token = assist.get_smart_contract_if_have(self.w3.eth.chain_id, it_is_erc20)		# get SC token
-			erc_20 = self.w3.eth.contract(address=token.sc_addr, abi=token.get_abi())				# connect to erc_20
-			amount = trans.get_amount_for_erc20(erc_20, token, sender, len(receivers))				# get amount to send
+			erc20 = self.w3.eth.contract(address=token.sc_addr, abi=token.get_abi())				# connect to erc_20
+			amount = trans.get_amount_for_erc20(erc20, token, sender, len(receivers))				# get amount to send
 			# Ask for gee and send if Ok
-			if trans.print_price_and_confirm_erc20(token, amount, len(receivers)):
-				txs = trans.transaction_sender_erc20(erc_20, token, sender, receivers, amount)
+			if trans.print_price_and_confirm_erc20(token, erc20, sender, len(receivers), amount):
+				txs = trans.transaction_sender_erc20(erc20, token, sender, receivers, amount)
 			else:
 				raise InterruptedError(texts.exited)
 		else:
