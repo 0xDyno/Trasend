@@ -91,6 +91,35 @@ def get_list_with_str_addresses(wallets: list):
 	return new_list
 
 
+def send_erc20_or(chain_id: int) -> bool | str:
+	"""Returns what to send - Native or ERC-20
+	False if Native, Otherwise -> address"""
+	coin = settings.chain_default_coin[chain_id]
+	what_to_send = input(texts.what_to_send.format(coin)).strip()
+	if not what_to_send:  # so, that's main
+		return False									# if empty - then it's native coin
+
+	if assist.is_it_addr(what_to_send):
+		try:											# check that's correct address
+			Web3.toChecksumAddress(what_to_send)		# if Ok - then probably it's ERC-20
+			return what_to_send							# Return it...
+		except ValueError:
+			print(texts.error_not_contract_address)
+			raise InterruptedError(texts.exited)
+	print(texts.error_not_contract_address)				# Otherwise that's wrong input
+	raise InterruptedError(texts.exited)
+
+
+def get_amount_for_erc20(erc_20, token: Token, sender: Wallet) -> int:
+	"""Checks balance and ask how much to send to each. Return amount for EVM with decimal counted
+	:return: amount to send (if 0.01 and dec 6 -> that's 1000)"""
+	sender_balance = erc_20.functions.balanceOf(sender.addr).call()				# check balance and print it
+	print("> Balance is >> {:.2f}".format(float(convert_to_normal_view(sender_balance, token.decimal))))
+	print("> Minimum for", token.symbol, "is", convert_to_normal_view_str(token.decimal))
+	amount = input("How much you want to send to each? >> ").strip().lower()	# ask to write amount to send
+	return convert_for_machine(Decimal(amount), token.decimal)
+
+
 # SENDING NATIVE COIN
 
 

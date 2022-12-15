@@ -285,7 +285,7 @@ class Manager:
 				print(texts.exited)
 				break
 			# If starts not with 0x or length not 66 symbols - tell about mistake
-			if not key.startswith("0x") or len(key) != settings.private_key_length:
+			if not assist.is_it_key(key):
 				print(texts.error_not_private_key)
 				continue
 			elif key in self.set_keys:  			# If exits - tell the label of the wallet
@@ -364,44 +364,32 @@ class Manager:
 				self._delete_all()
 				print(texts.success)
 		else:									# else get wallets
-			for wallet in self.parse_wallets_get_wallets(to_delete):
+			for wallet in self.parse_wallets(to_delete):
 				self._delete_wallet(wallet)
 
 	def try_send_transaction(self):
 		assert self.wallets, texts.no_wallets
 		# Get sender
-		text = self.print_ask(text_in_input="Choose wallet to send >> ")
-		sender_index = self.get_wallet_index(text)
-		sender: Wallet = self.wallets[sender_index]
+		sender_text = self.print_ask(text_in_input="Choose wallet to send >> ")
+		sender: Wallet = self.parse_wallets(sender_text)[0]
 		daemon1 = threads.start_todo(self.update_wallet, True, sender)
 		daemon2 = None
 
-		# Get what to send
-		what_to_send = input(texts.what_to_send.format(settings.chain_default_coin[self.chain_id])).strip()
-		if not what_to_send:		# so, that's main
-			send_smart_contract = False
-		elif what_to_send.startswith("0x") and len(what_to_send) == settings.address_length:
-			send_smart_contract = True		# so that's erc-20
-			try:
-				what_to_send = Web3.toChecksumAddress(what_to_send)
-			except ValueError:
-				print(texts.error_not_contract_address)
-				raise InterruptedError(texts.exited)
-			daemon2 = threads.start_todo(trans.update_erc_20, True, self.w3, what_to_send)
-		else:					# else X3 what it is
-			print(texts.error_not_contract_address)
-			raise InterruptedError(texts.exited)
+		# Get what to send | returns Address for Erc20 or False for native coin
+		it_is_erc20 = trans.send_erc20_or(self.w3.eth.chain_id)
+		if it_is_erc20:
+			daemon2 = threads.start_todo(trans.update_erc_20, True, self.w3, it_is_erc20)
 
 		# Get receivers
 		input_with_receivers = self.print_ask(text_after=texts.choose_receivers,
 											  text_in_input="Your choice >> ",
 											  do_print=False)
-		if not input_with_receivers == "list":
-			receivers = self.parse_wallets_get_wallets(users_input=input_with_receivers, delete_from_list=sender)
-		else:
+		if input_with_receivers == "list":
 			print("> Print addresses below, 1 address per line, write \"done\" when finished.")
-			receivers = assist.read_input_get_wallets()
+			receivers = assist.get_addrs_from_input()
 			print("> Got", len(receivers), "addresses")
+		else:
+			receivers = self.parse_wallets(users_input=input_with_receivers, delete_from_list=sender)
 
 		# Wait for daemons
 		daemon1.join()
@@ -409,22 +397,18 @@ class Manager:
 			daemon2.join()
 
 		# Get balance if we need and show
-		if send_smart_contract:		# sc logic
-			token: Token = assist.get_smart_contract_if_have(self.w3.eth.chain_id, what_to_send)
-			erc_20 = self.w3.eth.contract(address=token.sc_addr, abi=token.get_abi())
-			sender_balance = erc_20.functions.balanceOf(sender.addr).call()
-			print("> Balance is >> {:.2f}".format(float(trans.convert_to_normal_view(sender_balance, token.decimal))))
-			print("> Minimum for", token.symbol, "is", trans.convert_to_normal_view_str(token.decimal))
-			amount_to_send = Decimal(self.print_ask(text_in_input="How much you want to send? >> ", do_print=False))
-			amount_to_send = trans.convert_for_machine(amount_to_send, token.decimal)
-			# SEND
-			txs = trans.transaction_sender_erc20(self.w3, erc_20, token, sender, receivers, amount_to_send)
+		if it_is_erc20:		# sc logic
+			token: Token = assist.get_smart_contract_if_have(self.w3.eth.chain_id, it_is_erc20)		# get SC token
+			erc_20 = self.w3.eth.contract(address=token.sc_addr, abi=token.get_abi())				# connect to erc_20
+			amount = trans.get_amount_for_erc20(erc_20, token, sender)								# get amount to send
+			# Ask for gee and send if Ok
+			txs = trans.transaction_sender_erc20(self.w3, erc_20, token, sender, receivers, amount)
 		else:
 			print("> Balance is >> {:.2f} {}".format(sender.get_eth_balance(),
 													 settings.chain_default_coin[self.w3.eth.chain_id]))
 			amount_to_send = self.print_ask(text_in_input="How much you want to send to each? >> ", do_print=False)
 			amount_to_send = Web3.toWei(amount_to_send, "ether")
-			# SEND
+			# Ask for fee and send if Ok
 			if trans.print_price_and_confirm(self.chain_id, value=amount_to_send, receivers=receivers):
 				txs = trans.transaction_sender_native(self.w3, sender, receivers, amount_to_send)  	# send txs
 			else:
@@ -434,7 +418,7 @@ class Manager:
 		[Manager.all_txs.append(tx) for tx in txs if tx not in Manager.all_txs]
 		[print(tx) for tx in txs]
 
-	def parse_wallets_get_wallets(self, users_input: str, delete_from_list: Wallet | list = None):
+	def parse_wallets(self, users_input: str, delete_from_list: Wallet | list = None):
 		"""
 		Receive input and parse list of wallets from it. Deletes wallet / wallets if received in delete_from_list
 		:param users_input: string with selected wallet(s)

@@ -24,6 +24,16 @@ def confirm(print_before=None):
 	return input("> Are you sure? Write \"y\" to confirm: ").lower().strip() == "y"
 
 
+def is_it_addr(line: str) -> bool:
+	"""return True if it's like address. False - if it's 100% not address"""
+	return line.startswith("0x") and len(line) == settings.address_length
+
+
+def is_it_key(line: str) -> bool:
+	"""return True if it's like private key. False - if it's 100% not private key"""
+	return line.startswith("0x") and len(line) == settings.private_key_length
+
+
 def get_fernet_key():
 	with open(settings.crypto_key, "rb") as r:
 		return r.read()
@@ -176,7 +186,7 @@ def get_wallet_index(wallets_list: list, set_addr: set, set_labels: set, line: s
 			return i
 
 
-def read_input_get_wallets():
+def get_addrs_from_input():
 	addr_list = list()
 	while True:
 		read_line = input()
