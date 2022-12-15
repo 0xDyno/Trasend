@@ -60,7 +60,8 @@ def print_price_and_confirm_erc20(token: Token, erc20, sender, receivers: int, a
 	coin = settings.chain_default_coin[token.chain_id]
 
 	try:		# Count Base & Max fee from Estimated gas * multiplier
-		gas = int(erc20.functions.transfer(sender.addr, amount).estimateGas() * settings.multiply_gas)
+		data = {"from": sender.addr}
+		gas = int(erc20.functions.transfer(sender.addr, amount).estimateGas(data) * settings.multiply_gas)
 		base_fee = manager.Manager.network_gas_price * gas
 		max_fee = (manager.Manager.gas_price + manager.Manager.max_priority) * gas
 	except Exception as e:		# If we can't do it by some reason - use default settings
