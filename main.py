@@ -82,7 +82,7 @@ def main():
 if __name__ == "__main__":
     try:
         print(texts.trying_connect, end=" ")
-        connection = Web3(Web3.HTTPProvider(HTTPS_ETH))
+        connection = Web3(Web3.HTTPProvider(HTTPS_GOERLI))
         print(texts.success)
         m = Manager(connection)
     except (ConnectionError, MaxRetryError, NewConnectionError):

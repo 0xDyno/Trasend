@@ -247,7 +247,7 @@ class Manager:
 			Manager.network_max_priority = self.w3.eth.max_priority_fee
 
 			Manager.gas_price = int(Manager.network_gas_price * settings.gas_multiplier)
-			Manager.max_priority = int(Manager.network_gas_price * settings.priority_multiplier)
+			Manager.max_priority = int(Manager.network_max_priority * settings.priority_multiplier)
 
 			min_gas = Web3.toWei(settings.min_gwei, "gwei")		# change gas to min if current < min
 			if Manager.gas_price < min_gas:
