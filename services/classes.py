@@ -134,7 +134,7 @@ class Token:
         if sc_addr is None or not sc_addr.startswith("0x") or len(sc_addr) != settings.address_length:
             raise TypeError("Can't create TX, wrong Smart-Contract Address: ", sc_addr)
         self.chain_id = chain_id
-        self.sc_addr = sc_addr
+        self.sc_addr = Web3.toChecksumAddress(sc_addr)
         self.symbol = symbol
         self.decimal = decimal
         self._abi = abi

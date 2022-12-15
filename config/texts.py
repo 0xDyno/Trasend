@@ -17,7 +17,7 @@ instruction_main = """--------------------------------------------------- Show -
 -------------------------------------------------- Delete ---------------------------------------------------
 	 3 Delete wallets      3t Delete All TXs                                   4 Send ETH / ERC-20
 
-  upd - update wallets | 01 - last block info | 02 - check connection | 03 - gas info | t - tests | e - exit"""
+  upd - update wallets | 01 - last block info | 02 - check connection | 03 - gas info |  e - exit | new new new"""
 wrong_command_main = "> Wrong command. If you need instruction - print h"
 
 # General

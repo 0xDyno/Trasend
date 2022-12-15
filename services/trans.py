@@ -1,7 +1,7 @@
 import time
 from decimal import Decimal
 
-from web3.exceptions import BadFunctionCallOutput, ABIFunctionNotFound
+from web3.exceptions import BadFunctionCallOutput, ABIFunctionNotFound, ValidationError
 from services.classes import *
 from services import threads, logs, assist, manager
 from eth_defi.token import fetch_erc20_details
@@ -99,14 +99,13 @@ def send_erc20_or(chain_id: int) -> bool | str:
 	if not what_to_send:  # so, that's main
 		return False									# if empty - then it's native coin
 
-	if assist.is_it_addr(what_to_send):
-		try:											# check that's correct address
-			Web3.toChecksumAddress(what_to_send)		# if Ok - then probably it's ERC-20
-			return what_to_send							# Return it...
-		except ValueError:
-			print(texts.error_not_contract_address)
-			raise InterruptedError(texts.exited)
-	print(texts.error_not_contract_address)				# Otherwise that's wrong input
+	try:
+		what_to_send = Web3.toChecksumAddress(what_to_send)		# check it's address
+		if Web3.eth.get_code(what_to_send):						# check it's contract
+			return what_to_send									# return address
+	except Exception:
+		pass					# Otherwise that's wrong input
+	print(texts.error_not_contract_address)
 	raise InterruptedError(texts.exited)
 
 
@@ -198,30 +197,29 @@ def update_erc_20(w3: Web3, sc_addr):
 
 
 
-def transaction_sender_erc20(w3: Web3, erc20, token: Token, sender: Wallet, receivers: list, amount) -> list:
+def transaction_sender_erc20(erc20, token: Token, sender: Wallet, receivers: list, amount) -> list:
 	"""Receive list with receivers as Wallets, but work as str-address. That made for purpose to send TXs not
 	only to Wallets in the system. But for TXs creation give Wallets, to add TXs to the list if it's Wallet obj"""
 	txs = list()
 	receivers_str = get_list_with_str_addresses(receivers)
 	nonce = sender.nonce
-	chain_id = w3.eth.chain_id
+	chain_id = erc20.web3.eth.chain_id
+	save_amount = str(convert_to_normal_view(amount, token.decimal))
 
 	for i in range(len(receivers_str)):
 		assist.create_progress_bar(i, len(receivers_str))
-		tx_hash = send_erc20(w3, erc20, sender.addr, sender.key(), nonce+i, receivers_str[i], amount)
-
-		amount = str(convert_to_normal_view(amount, token.decimal))
-		tx = Transaction(chain_id, time.time(), receivers[i], sender, amount, tx_hash, token.symbol, token.sc_addr)
+		tx_hash = send_erc20(erc20, sender.addr, sender.key(), nonce + i, receivers_str[i], amount)
+		tx = Transaction(chain_id, time.time(), receivers[i], sender, save_amount, tx_hash, token.symbol, token.sc_addr)
 		txs.append(tx)
 
-	threads.start_todo(update_txs, True, w3, txs)
+	threads.start_todo(update_txs, True, erc20.web3, txs)
 	return txs
 
 
-def send_erc20(w3: Web3, erc20, sender: str, sender_key: str, nonce, receiver: str, amount):
+def send_erc20(erc20, sender: str, sender_key: str, nonce, receiver: str, amount):
 	tx_dict = {
 		"from": sender,
-		"chainId": w3.eth.chain_id,
+		"chainId": erc20.web3.eth.chain_id,
 		"nonce": nonce,
 		"maxFeePerGas": manager.Manager.gas_price,
 		"maxPriorityFeePerGas": manager.Manager.max_priority,
@@ -229,9 +227,9 @@ def send_erc20(w3: Web3, erc20, sender: str, sender_key: str, nonce, receiver: s
 		"gas": 215840,
 	}
 	raw_tx = erc20.functions.transfer(receiver, amount).build_transaction(tx_dict)
-	signed = w3.eth.account.sign_transaction(raw_tx, sender_key)
-	tx_hash = w3.eth.send_raw_transaction(signed.rawTransaction)
-	return w3.toHex(tx_hash)  # return TX
+	signed = erc20.web3.eth.account.sign_transaction(raw_tx, sender_key)
+	tx_hash = erc20.web3.eth.send_raw_transaction(signed.rawTransaction)
+	return Web3.toHex(tx_hash)  # return TX
 
 
 def update_txs(w3: Web3, txs_list: list):

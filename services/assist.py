@@ -175,10 +175,10 @@ def get_wallet_index(wallets_list: list, set_addr: set, set_labels: set, line: s
 
 	if line.isnumeric() and len(line) < 4:		# Min length for label = 4 chars.
 		number = int(line)						# If it's less -> that's number
-		assert len(wallets_list) >= number > 0, "Wrong number"
+		assert len(wallets_list) >= number > 0, "Wrong number" + "\n" + texts.exited
 		return number - 1
 	# Tho... that should be addr or label, let's check it
-	assert line in set_addr or line in set_labels, texts.error_no_such_address
+	assert line in set_addr or line in set_labels, texts.error_no_such_address + "\n" + texts.exited
 
 	line = line.lower()
 	for i in range(len(wallets_list)):

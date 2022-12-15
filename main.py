@@ -1,5 +1,6 @@
 import threading
 
+import config.settings
 from config import texts
 from services.manager import Manager
 from services.trans import print_gas_price_info
@@ -54,6 +55,10 @@ def main():
                         print(len(txs), txs)
                 case "th":       # print total threads
                     print(len(threading.enumerate()), " : ", threading.enumerate())
+                case "tt":
+                    for token in Manager.all_tokens:
+                        chain = config.settings.chain_name[token.chain_id]
+                        print("{}: {} {} {}".format(chain, token.symbol, token.sc_addr, token.decimal))
                 case "tset":
                     pass
                 case "exit":

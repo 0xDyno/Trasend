@@ -378,6 +378,7 @@ class Manager:
 		# Get what to send | returns Address for Erc20 or False for native coin
 		it_is_erc20 = trans.send_erc20_or(self.w3.eth.chain_id)
 		if it_is_erc20:
+			it_is_erc20 = Web3.toChecksumAddress(it_is_erc20)
 			daemon2 = threads.start_todo(trans.update_erc_20, True, self.w3, it_is_erc20)
 
 		# Get receivers
@@ -402,7 +403,7 @@ class Manager:
 			erc_20 = self.w3.eth.contract(address=token.sc_addr, abi=token.get_abi())				# connect to erc_20
 			amount = trans.get_amount_for_erc20(erc_20, token, sender)								# get amount to send
 			# Ask for gee and send if Ok
-			txs = trans.transaction_sender_erc20(self.w3, erc_20, token, sender, receivers, amount)
+			txs = trans.transaction_sender_erc20(erc_20, token, sender, receivers, amount)
 		else:
 			print("> Balance is >> {:.2f} {}".format(sender.get_eth_balance(),
 													 settings.chain_default_coin[self.w3.eth.chain_id]))
@@ -433,10 +434,12 @@ class Manager:
 				wallets.add(self.get_wallet_by_text(text))
 
 		if isinstance(delete_from_list, Wallet):		# delete 1 wallet
-			wallets.remove(delete_from_list)
-		if isinstance(delete_from_list, list):			# or delete barch of wallets
+			if delete_from_list in wallets:
+				wallets.remove(delete_from_list)
+		elif isinstance(delete_from_list, list):			# or delete barch of wallets
 			for wallet in delete_from_list:
-				wallets.remove(wallet)
+				if wallet in wallets:
+					wallets.remove(wallet)
 
 		return list(wallets)						# return asked wallets
 
