@@ -71,7 +71,7 @@ del_out_of_index = "> Wrong amount - there are no so many wallets that you want 
 what_to_send = "Press Enter to send {} or drop me contract address (token) >> "
 error_not_contract_address = "> That's not contract address 100%, check it one more time and try again."
 choose_receivers = """> Choose receivers, they should be separated by spaces (1 2 any_label 6 21991656 0x690b9... etc)
-\t\t\t'all' - to send all | 'list' - to drop the list of receivers"""
+\t\t\t'all' - to send all | 'file' - load from file"""
 tx_received = "Received"
 tx_sent = "Sent"
 

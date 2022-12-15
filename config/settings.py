@@ -20,16 +20,20 @@ label_gen_length = 8
 """Daemons"""			#################################################
 print_daemons_info = False			# prints info from daemons
 update_block_every = 3				# 12 secs for ETH
-update_gas_every = 3				#
+update_gas_every = 5				#
 max_threads_per_time = 20			# not more than N threads
 wait_to_create_daemon_again = 1		# If no free place to create a daemon - it will wait that time before try again
 
 """Transactions"""		#################################################
 print_trans_info = False		# prints info when does a transaction
-gas_multiplier = 2				# to multiply gas price (paid only for used gwei, other returns)
+gas_multiplier = 1.2			# to multiply gas price (paid only for used gwei, other returns)
 priority_multiplier = 1.5		# to multiply priority (will be paid full price 100%)
-min_priority = 0.1				# what min_priority, in gwei
-min_gas = 1						# mit gas price, in gwei
+
+min_priority_gwei = 2			# what min_priority, in gwei
+min_gwei = 10					# min gas price, in gwei
+gas_native = 21000				#
+gas_erc20 = 100000				# max gas to send ETC20 token
+average_gas_erc20 = 60000		# average gas required to send TX
 
 tx_slash = "tx/"
 chain_explorers = {

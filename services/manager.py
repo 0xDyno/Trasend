@@ -243,20 +243,19 @@ class Manager:
 	def _daemon_update_gas(self):
 		"""Daemon updates gas price & max priority every N secs. Very important info, change with care"""
 		while True:		# no change int !! That's wei, so Ok. And web3 doesn't work with float.
-			Manager.network_gas_price = int(self.w3.eth.gas_price * settings.gas_multiplier)
-			Manager.network_max_priority = int(self.w3.eth.max_priority_fee * settings.priority_multiplier)
+			Manager.network_gas_price = self.w3.eth.gas_price
+			Manager.network_max_priority = self.w3.eth.max_priority_fee
 
-			min_gas = Web3.toWei(settings.min_gas, "gwei")				# get min gas from settings
-			if Manager.network_gas_price < min_gas:						# if gas less than min... you got
+			Manager.gas_price = int(Manager.network_gas_price * settings.gas_multiplier)
+			Manager.max_priority = int(Manager.network_gas_price * settings.priority_multiplier)
+
+			min_gas = Web3.toWei(settings.min_gwei, "gwei")		# change gas to min if current < min
+			if Manager.gas_price < min_gas:
 				Manager.gas_price = min_gas
-			else:
-				Manager.gas_price = Manager.network_gas_price
 
-			min_priority = Web3.toWei(settings.min_priority, "gwei")	# get min prior from settings...
-			if Manager.network_max_priority < min_priority:
+			min_priority = Web3.toWei(settings.min_priority_gwei, "gwei")	# same with priority
+			if Manager.max_priority < min_priority:
 				Manager.max_priority = min_priority
-			else:
-				Manager.max_priority = Manager.network_max_priority
 
 			time.sleep(settings.update_gas_every)
 
@@ -379,7 +378,7 @@ class Manager:
 		daemon2 = None
 
 		# Get what to send | returns Address for Erc20 or False for native coin
-		it_is_erc20 = trans.send_erc20_or(self.w3.eth.chain_id)
+		it_is_erc20 = trans.send_erc20_or(self.w3)
 		if it_is_erc20:
 			it_is_erc20 = Web3.toChecksumAddress(it_is_erc20)
 			daemon2 = threads.start_todo(trans.update_erc_20, True, self.w3, it_is_erc20)
@@ -388,9 +387,10 @@ class Manager:
 		input_with_receivers = self.print_ask(text_after=texts.choose_receivers,
 											  text_in_input="Your choice >> ",
 											  do_print=False)
-		if input_with_receivers == "list":
-			print("> Print addresses below, 1 address per line, write \"done\" when finished.")
-			receivers = assist.get_addrs_from_input()
+		if input_with_receivers == "file":
+			path = self.print_ask(text_in_input="Full path to the file >> ", do_print=False)
+			receivers = assist.get_addrs_from_file(path)
+			assert receivers, "> Didn't find correct addresses in the file"
 			print("> Got", len(receivers), "addresses")
 		else:
 			receivers = self.parse_wallets(users_input=input_with_receivers, delete_from_list=sender)
@@ -404,21 +404,25 @@ class Manager:
 		if it_is_erc20:		# sc logic
 			token: Token = assist.get_smart_contract_if_have(self.w3.eth.chain_id, it_is_erc20)		# get SC token
 			erc_20 = self.w3.eth.contract(address=token.sc_addr, abi=token.get_abi())				# connect to erc_20
-			amount = trans.get_amount_for_erc20(erc_20, token, sender)								# get amount to send
+			amount = trans.get_amount_for_erc20(erc_20, token, sender, len(receivers))				# get amount to send
 			# Ask for gee and send if Ok
-			txs = trans.transaction_sender_erc20(erc_20, token, sender, receivers, amount)
+			if trans.print_price_and_confirm_erc20(token, amount, len(receivers)):
+				txs = trans.transaction_sender_erc20(erc_20, token, sender, receivers, amount)
+			else:
+				raise InterruptedError(texts.exited)
 		else:
 			print("> Balance is >> {:.2f} {}".format(sender.get_eth_balance(),
 													 settings.chain_default_coin[self.w3.eth.chain_id]))
 			amount_to_send = self.print_ask(text_in_input="How much you want to send to each? >> ", do_print=False)
+			assist.check_balances(sender.get_eth_balance(), amount_to_send, len(receivers))
+
 			amount_to_send = Web3.toWei(amount_to_send, "ether")
 			# Ask for fee and send if Ok
-			if trans.print_price_and_confirm(self.chain_id, value=amount_to_send, receivers=receivers):
+			if trans.print_price_and_confirm_native(self.chain_id, value=amount_to_send, receivers=len(receivers)):
 				txs = trans.transaction_sender_native(self.w3, sender, receivers, amount_to_send)  	# send txs
 			else:
 				raise InterruptedError(texts.exited)
-
-		# add to list
+		# Last step - add all TXs to the list and print them
 		[Manager.all_txs.append(tx) for tx in txs if tx not in Manager.all_txs]
 		[print(tx) for tx in txs]
 
@@ -529,18 +533,14 @@ class Manager:
 		:return: user's input if it's not empty"""
 		if text_before is not None:
 			print(text_before)			# print text_before is there's
-
 		if do_print:
 			self.print_wallets()  		# prints wallets
-
 		if text_after is not None:
 			print(text_after)			# print text_after is there's
-
 		if text_in_input is not None:	# Choose how to ask - in the same line
 			users_input = input("\t" + text_in_input).strip().lower()
 		else:							# or on the next line
 			users_input = input().strip().lower()
-
 		assert users_input, texts.exited	# check it's not empty
 		return users_input					# return
 

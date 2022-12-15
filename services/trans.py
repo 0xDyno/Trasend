@@ -1,10 +1,11 @@
 import time
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from web3.exceptions import BadFunctionCallOutput, ABIFunctionNotFound, ValidationError
 from services.classes import *
 from services import threads, logs, assist, manager
 from eth_defi.token import fetch_erc20_details
+from web3 import Web3
 
 """
 Helps Manager to work with transactions
@@ -27,43 +28,48 @@ def print_gas_price_info():
 
 	current_gas = "Current state: gas = {:.02f} gwei, priority = {} gwei (live {:.2f}, {:.2f}) | " \
 		"settings: min gas = {} <> min prior = {}".format(gas, priority, network_gas, network_priority,
-																	 settings.min_gas, settings.min_priority)
+														  settings.min_gwei, settings.min_priority_gwei)
 
 	print(current_gas)
 
 
-def print_price_and_confirm(chain_id, value, receivers: list | set | tuple) -> bool:
+def get_max_fee(gas: int):
+	return (manager.Manager.gas_price + manager.Manager.max_priority) * gas
+
+
+def print_price_and_confirm_native(chain_id, value, receivers: int) -> bool:
 	"""Prints the price for the transaction and ask to confirm before sending """
 	coin = settings.chain_default_coin[chain_id]
-	tx_number = len(receivers)					# get No of TXs will be made
-	gas_price = manager.Manager.gas_price		# get gas price (like gwei, but in wei | 1gwei=1000000000wei)
-	priority = manager.Manager.max_priority
-	fee = (gas_price + priority) * 21000
+	base_fee = manager.Manager.network_gas_price * settings.gas_native
+	max_fee = (manager.Manager.gas_price + manager.Manager.max_priority) * settings.gas_native
+	total_send = Web3.fromWei(value * receivers, "ether")
 
-	total_send = value * tx_number
-	total_fee = fee * tx_number
+	base_fee = Web3.fromWei(base_fee * receivers, "ether")
+	max_fee = Web3.fromWei(max_fee * receivers, "ether")
 
-	total_send = Web3.fromWei(total_send, "ether")
-	total_fee = Web3.fromWei(total_fee, "ether")
-	total = total_fee + total_send
-	ask = f"Amount: {total_send:.3f} {coin}\n" \
-		f"Fee: {total_fee:.3f} {coin}\n" \
-	  	f"Total: {total:.3f} {coin}\n"
-
+	total_base = base_fee + total_send
+	total_max = max_fee + total_send
+	ask = f"Amount: {total_send:.4f} {coin}\n" \
+		  f"Base Fee: {base_fee:.4f} {coin} | Max Fee: {total_max:.4f} {coin}\n" \
+	  	  f"Base Total: {total_base:.4f} {coin} | Max Total {total_max:.4f} {coin}\n"
 	return assist.confirm(print_before=ask)
 
 
-def get_gas(w3: Web3, receiver: Wallet, last_block) -> int:
-	"""
-	Return required gas for that transaction
-	:return int: required gas (21k for ETH transfer)
-	"""
-	tx = {
-		"to": receiver,
-		"value": 1,
-		"chainId": w3.eth.chain_id
-	}
-	return w3.eth.estimate_gas(tx, last_block["number"])
+def print_price_and_confirm_erc20(token: Token, amount, receivers: int) -> bool:
+	symb = token.symbol
+	coin = settings.chain_default_coin[token.chain_id]
+	base_fee = manager.Manager.network_gas_price * settings.average_gas_erc20
+	max_fee = (manager.Manager.gas_price + manager.Manager.max_priority) * settings.gas_erc20
+
+	amount = convert_to_normal_view(amount, token.decimal)
+	total_send = amount * receivers
+
+	total_fee_base = Web3.fromWei(base_fee * receivers, "ether")
+	total_fee_max = Web3.fromWei(max_fee * receivers, "ether")
+
+	ask = f"Tokens: {total_send:.2f} {symb}\n" \
+		  f"Base Fee: {total_fee_base:.4f} {coin} | Max Can Be Used: {total_fee_max:.4f} {coin}\n"
+	return assist.confirm(print_before=ask)
 
 
 def convert_to_normal_view(not_normal: int, decimal) -> Decimal:
@@ -91,17 +97,17 @@ def get_list_with_str_addresses(wallets: list):
 	return new_list
 
 
-def send_erc20_or(chain_id: int) -> bool | str:
+def send_erc20_or(w3: Web3) -> bool | str:
 	"""Returns what to send - Native or ERC-20
 	False if Native, Otherwise -> address"""
-	coin = settings.chain_default_coin[chain_id]
+	coin = settings.chain_default_coin[w3.eth.chain_id]
 	what_to_send = input(texts.what_to_send.format(coin)).strip()
 	if not what_to_send:  # so, that's main
 		return False									# if empty - then it's native coin
 
 	try:
-		what_to_send = Web3.toChecksumAddress(what_to_send)		# check it's address
-		if Web3.eth.get_code(what_to_send):						# check it's contract
+		what_to_send = w3.toChecksumAddress(what_to_send)		# check it's address
+		if w3.eth.get_code(what_to_send):						# check it's contract
 			return what_to_send									# return address
 	except Exception:
 		pass					# Otherwise that's wrong input
@@ -109,14 +115,17 @@ def send_erc20_or(chain_id: int) -> bool | str:
 	raise InterruptedError(texts.exited)
 
 
-def get_amount_for_erc20(erc_20, token: Token, sender: Wallet) -> int:
+def get_amount_for_erc20(erc_20, token: Token, sender: Wallet, receivers: int) -> int:
 	"""Checks balance and ask how much to send to each. Return amount for EVM with decimal counted
 	:return: amount to send (if 0.01 and dec 6 -> that's 1000)"""
-	sender_balance = erc_20.functions.balanceOf(sender.addr).call()				# check balance and print it
-	print("> Balance is >> {:.2f}".format(float(convert_to_normal_view(sender_balance, token.decimal))))
+	balance_raw = erc_20.functions.balanceOf(sender.addr).call()				# check balance and print it
+	balance = Decimal(convert_to_normal_view(balance_raw, token.decimal))
+	print("> Balance is >> {:.2f}".format(balance))
 	print("> Minimum for", token.symbol, "is", convert_to_normal_view_str(token.decimal))
-	amount = input("How much you want to send to each? >> ").strip().lower()	# ask to write amount to send
-	return convert_for_machine(Decimal(amount), token.decimal)
+	wish_send = input("How much you want to send to each? >> ").strip().lower()	# ask to write amount to send
+
+	assist.check_balances(wish_send, balance, receivers)
+	return convert_for_machine(Decimal(wish_send), token.decimal)
 
 
 # SENDING NATIVE COIN
@@ -131,12 +140,12 @@ def transaction_sender_native(w3: Web3, sender: Wallet, receivers: list, value) 
 	receivers_str = get_list_with_str_addresses(receivers)
 	nonce = sender.nonce
 	chain_id = w3.eth.chain_id
+	amount = str(convert_to_normal_view(value, 18))
 
 	for i in range(len(receivers_str)):
 		assist.create_progress_bar(i, len(receivers_str))
 		tx_hash = send_native(w3, chain_id, sender, nonce + i, receivers_str[i], value)
 
-		amount = str(convert_to_normal_view(value, 18))
 		txs.append(Transaction(chain_id, time.time(), receivers[i], sender, amount, tx_hash))
 
 	threads.start_todo(update_txs, True, w3, txs)
@@ -224,7 +233,7 @@ def send_erc20(erc20, sender: str, sender_key: str, nonce, receiver: str, amount
 		"maxFeePerGas": manager.Manager.gas_price,
 		"maxPriorityFeePerGas": manager.Manager.max_priority,
 		"type": 2,
-		"gas": 215840,
+		"gas": settings.gas_erc20,
 	}
 	raw_tx = erc20.functions.transfer(receiver, amount).build_transaction(tx_dict)
 	signed = erc20.web3.eth.account.sign_transaction(raw_tx, sender_key)

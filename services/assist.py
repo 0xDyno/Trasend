@@ -1,6 +1,8 @@
 import os
 import pickle
 import time
+from decimal import Decimal, InvalidOperation
+
 from web3 import Web3
 from eth_account import Account
 
@@ -186,17 +188,19 @@ def get_wallet_index(wallets_list: list, set_addr: set, set_labels: set, line: s
 			return i
 
 
-def get_addrs_from_input():
-	addr_list = list()
-	while True:
-		read_line = input()
-		if read_line.lower() == "done":
-			return addr_list
-		try:
-			addr = Web3.toChecksumAddress(read_line)
-			addr_list.append(addr)
-		except ValueError:
-			print("Wrong address, check for mistake -", read_line)
+def get_addrs_from_file(path: str):
+	with open(path, "r") as reader:
+		addr_list = reader.read().strip().split("\n")
+
+	receivers = list()
+	for addr in addr_list:
+		if addr:
+			try:
+				receivers.append(Web3.toChecksumAddress(addr))
+			except Exception:
+				print("> {addr} is not address")
+
+	return receivers
 
 
 def delete_txs_history(wallets: list):
@@ -236,14 +240,8 @@ def get_smart_contract_if_have(chain_id, sc_addr) -> Token | bool:
 
 
 def add_smart_contract_token(chain_id: int, sc_addr: str, symbol: str, decimal: int, abi="default"):
-	if not is_contract_exist(chain_id, sc_addr):					# if new one
+	if not is_contract_exist(chain_id, sc_addr):						# if new one
 		new_token = Token(chain_id, sc_addr, symbol, decimal, abi)		# create Token
-		print(chain_id)
-		print(sc_addr)
-		print(symbol)
-		print(decimal)
-		print(type(manager.Manager.dict_sc_addr), manager.Manager.dict_sc_addr)
-		print(type(manager.Manager.dict_sc_addr.get(chain_id)), manager.Manager.dict_sc_addr.get(chain_id))
 		manager.Manager.dict_sc_addr.get(chain_id).add(sc_addr)			# add addr to addr_set in correct chain if
 		manager.Manager.all_tokens.add(new_token)						# and add Obj to global set
 
@@ -255,6 +253,19 @@ def export_wallets(wallets: list):
 		for wallet in wallets:
 			w.write(f"{wallet.addr} {wallet.key()}\n")
 	print("> Wallets were exported to >", path)
+
+
+def check_balances(balance, wish_send, receivers=1):
+	if not wish_send:
+		raise InterruptedError("> Not a number. Exited.")
+	try:
+		balance = Decimal(balance)
+		wish_send = Decimal(wish_send)
+	except InvalidOperation:
+		raise InterruptedError("> Not a number. Exited.")
+	required = wish_send * receivers
+	if required > balance:
+		raise InterruptedError("> Not enough funds. Required {:.2f}, you have {:.2f}".format(required, balance))
 
 
 def check_saveloads_files(folder: str, path_to_file: str):

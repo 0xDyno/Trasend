@@ -52,9 +52,8 @@ def main():
                 case "03":
                     print_gas_price_info()
                 case "t":       # print txs in every wallet
-                    for w in m.wallets:
-                        txs = w.txs
-                        print(len(txs), txs)
+                    print("Gas in the system {} gwei".format(Web3.fromWei(Manager.gas_price, "gwei")))
+                    print("Priority in the system {} gwei".format(Web3.fromWei(Manager.max_priority, "gwei")))
                 case "th":       # print total threads
                     print(len(threading.enumerate()), " : ", threading.enumerate())
                 case "tt":
@@ -73,6 +72,8 @@ def main():
                     print(texts.wrong_command_main)
         except (AssertionError, TypeError, IndexError, ValueError, InterruptedError) as e:
             print(e)
+        except (ConnectionError, MaxRetryError, NewConnectionError):
+            print("Error with connection. Probably you don't have internet connection.")
         except KeyboardInterrupt:
             print("Finished")
             break
@@ -81,7 +82,7 @@ def main():
 if __name__ == "__main__":
     try:
         print(texts.trying_connect, end=" ")
-        connection = Web3(Web3.HTTPProvider(HTTPS_GOERLI))
+        connection = Web3(Web3.HTTPProvider(HTTPS_ETH))
         print(texts.success)
         m = Manager(connection)
     except (ConnectionError, MaxRetryError, NewConnectionError):
