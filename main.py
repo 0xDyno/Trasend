@@ -1,5 +1,7 @@
 import threading
 
+from urllib3.exceptions import MaxRetryError, NewConnectionError
+
 import config.settings
 from config import texts
 from services.manager import Manager
@@ -77,14 +79,17 @@ def main():
 
 
 if __name__ == "__main__":
-    print(texts.trying_connect, end=" ")
-    connection = Web3(Web3.HTTPProvider(HTTPS_GOERLI))
-    print(texts.success)
-    m = Manager(connection)
-
     try:
-        main()
-    finally:
-        m.finish_work()
+        print(texts.trying_connect, end=" ")
+        connection = Web3(Web3.HTTPProvider(HTTPS_GOERLI))
+        print(texts.success)
+        m = Manager(connection)
+    except (ConnectionError, MaxRetryError, NewConnectionError):
+        print("Error with connection. Probably you don't have internet connection")
+    else:
+        try:
+            main()
+        finally:
+            m.finish_work()
 else:
     print("I won't work like that. You have to start the app directly from it's main file")
