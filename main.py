@@ -32,10 +32,6 @@ def main():
                         m.export_wallets()
                 case "3":                             # Delete wallets
                     m.try_delete_wallet()
-                case "3a":                            # Delete all
-                    if assist.confirm():
-                        m.delete_all()
-                        print(texts.success)
                 case "3t":                            # Delete all transactions
                     if assist.confirm():
                         m.delete_txs_history()

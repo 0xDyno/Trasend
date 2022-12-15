@@ -21,7 +21,7 @@ Not important methods/functions which doesn't work with data directly will be he
 def confirm(print_before=None):
 	if print_before is not None:
 		print(print_before)
-	return input("Are you sure? Write \"y\" to confirm: ").lower().strip() == "y"
+	return input("> Are you sure? Write \"y\" to confirm: ").lower().strip() == "y"
 
 
 def get_fernet_key():
@@ -73,8 +73,9 @@ def generate_label(set_with_labels):
 def ask_label(set_with_labels: set):
 	min_ = settings.label_min_length
 	max_ = settings.label_max_length
+	print(texts.ask_label_instruction)
 	while True:
-		label = input(texts.ask_label).strip()
+		label = input("\t>> ").strip()
 		if not label:									# If empty - generate number
 			return generate_label(set_with_labels)
 		elif label.lower() == "exit":  					# If "exit" - exit
@@ -83,7 +84,7 @@ def ask_label(set_with_labels: set):
 			print(texts.label_wrong_length.format(min_, max_, len(label)))
 			continue
 
-		if not label.replace(" ", "").replace("_", "").isalnum():
+		if not label.isalnum():
 			print(texts.label_wrong_letters)
 			continue
 
@@ -135,7 +136,7 @@ def generate_wallets(w3, set_labels, set_keys, number) -> list:
 	"""
 	new_generated_wallets = list()
 	list_daemons = list()
-	print(f"Started the generation {number} wallets")
+	print(f"> Started the generation {number} wallets")
 	for _ in range(number):
 		while not threads.can_create_daemon():		# If we can create daemon - sleep
 			if number > 50:
@@ -148,15 +149,20 @@ def generate_wallets(w3, set_labels, set_keys, number) -> list:
 	return new_generated_wallets										# return the list
 
 
-def get_wallet_index_from_input(wallets_list: list, set_addr: set, set_labels: set, line: str) -> int:
+def get_wallet_index(wallets_list: list, set_addr: set, set_labels: set, line: str | Wallet) -> int:
 	"""
-	Returns wallet index from Wallet's number, label or address.
+	Returns wallet index in the list from: Waller obj or it's number, label or address.
 	:param wallets_list: list with wallets
 	:param set_addr: set with addresses
 	:param set_labels: set with labels
 	:param line: address or label or number (starts from 1)
 	:return: Index of selected Wallet in the list
 	"""
+	if isinstance(line, Wallet):
+		for i in range(len(wallets_list)):
+			if wallets_list[i].key() == line.key():
+				return i
+
 	if line.isnumeric() and len(line) < 4:		# Min length for label = 4 chars.
 		number = int(line)						# If it's less -> that's number
 		assert len(wallets_list) >= number > 0, "Wrong number"
@@ -222,6 +228,12 @@ def get_smart_contract_if_have(chain_id, sc_addr) -> Token | bool:
 def add_smart_contract_token(chain_id: int, sc_addr: str, symbol: str, decimal: int, abi="default"):
 	if not is_contract_exist(chain_id, sc_addr):					# if new one
 		new_token = Token(chain_id, sc_addr, symbol, decimal, abi)		# create Token
+		print(chain_id)
+		print(sc_addr)
+		print(symbol)
+		print(decimal)
+		print(type(manager.Manager.dict_sc_addr), manager.Manager.dict_sc_addr)
+		print(type(manager.Manager.dict_sc_addr.get(chain_id)), manager.Manager.dict_sc_addr.get(chain_id))
 		manager.Manager.dict_sc_addr.get(chain_id).add(sc_addr)			# add addr to addr_set in correct chain if
 		manager.Manager.all_tokens.add(new_token)						# and add Obj to global set
 
@@ -232,7 +244,7 @@ def export_wallets(wallets: list):
 	with open(path, "w") as w:
 		for wallet in wallets:
 			w.write(f"{wallet.addr} {wallet.key()}\n")
-	print("Wallets were exported to >>>", path)
+	print("> Wallets were exported to >", path)
 
 
 def check_saveloads_files(folder: str, path_to_file: str):

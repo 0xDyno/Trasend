@@ -15,7 +15,7 @@ class Wallet:
         self.label = label
 
         self.nonce = int()
-        self.addr = str()               # - use to print / send TXs (checkSum)
+        self.addr = str()               # - CheckSum addr, use to print / send TXs
         self.addr_lower = str()         # - use to compare / find
         self.balance_in_wei = int()
         self.txs = list()               # list with Transaction objects

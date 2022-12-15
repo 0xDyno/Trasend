@@ -82,6 +82,79 @@ def convert_to_normal_view_str(decimal, not_normal=1) -> str:
 	return str_format.format(min_)
 
 
+def get_list_with_str_addresses(wallets: list):
+	"""Receives list with Wallets or str-Addresses and convert it to str-Addresses"""
+	new_list = wallets.copy()					# make copy
+	for i in range(len(new_list)):
+		if isinstance(new_list[i], Wallet):		# if element is Wallet
+			new_list[i] = new_list[i].addr		# change it with it's addr
+	return new_list
+
+
+# SENDING NATIVE COIN
+
+
+def transaction_sender_native(w3: Web3, sender: Wallet, receivers: list, value) -> list:
+	"""
+	Sends asset from 1 wallet to N others wallets chosen amount.
+	If Amount = 2 and 20 receivers, then will be sent 2*20 = 40 units
+	"""
+	txs = list()
+	receivers_str = get_list_with_str_addresses(receivers)
+	nonce = sender.nonce
+	chain_id = w3.eth.chain_id
+
+	for i in range(len(receivers_str)):
+		assist.create_progress_bar(i, len(receivers_str))
+		tx_hash = send_native(w3, chain_id, sender, nonce + i, receivers_str[i], value)
+
+		amount = str(convert_to_normal_view(value, 18))
+		txs.append(Transaction(chain_id, time.time(), receivers[i], sender, amount, tx_hash))
+
+	threads.start_todo(update_txs, True, w3, txs)
+	return txs
+
+
+def send_native(w3: Web3, chain_id: int, sender: Wallet, nonce, receiver: Wallet, value) -> str:
+	"""
+	Tries to send transaction with the last ETH updates. But it won't work for networks that didn't update
+	So I wrote also second variant to send transaction, that happens when we receive an error
+	:return: transaction hash, string
+	"""
+	try:
+		tx = {
+			"from": sender.addr,
+			"to": receiver,
+			"gas": 21000,
+			"maxFeePerGas": manager.Manager.gas_price,
+			"maxPriorityFeePerGas": manager.Manager.max_priority,
+			"value": value,
+			"data": b'',
+			"nonce": nonce,
+			"type": 2,
+			"chainId": chain_id
+		}
+		signed_tx = w3.eth.account.sign_transaction(tx, sender.key())
+		tx_hash_hexbytes = w3.eth.send_raw_transaction(signed_tx.rawTransaction)
+		return w3.toHex(tx_hash_hexbytes)
+	except Exception:		# Some BlockChains doesn't work with TX type 2, so here I try to use old way
+		tx = {
+			"to": receiver,
+			"nonce": sender.nonce,
+			"gas": 21000,
+			"gasPrice": manager.Manager.gas_price,
+			"value": value,
+			"chainId": chain_id
+		}
+		signed_tx = w3.eth.account.sign_transaction(tx, sender.key())
+		tx_hash_hexbytes = w3.eth.send_raw_transaction(signed_tx.rawTransaction)
+		return w3.toHex(tx_hash_hexbytes)
+
+
+# SENDING ERC - 20 TOKENS
+
+
+
 def update_erc_20(w3: Web3, sc_addr):
 	"""If we don't have that contrat in the system - do connection, get info and save new Token to the system"""
 	if not assist.is_contract_exist(w3.eth.chain_id, sc_addr):
@@ -95,52 +168,25 @@ def update_erc_20(w3: Web3, sc_addr):
 			assist.add_smart_contract_token(w3.eth.chain_id, sc_addr, erc_20.symbol, erc_20.decimals, erc_20.contract.abi)
 
 
-def transaction_sender(w3: Web3, sender: Wallet, receivers: list, value) -> list:
-	"""
-	Sends asset from 1 wallet to N others wallets chosen amount.
-	If Amount = 2 and 20 receivers, then will be sent 2*20 = 40 units
-	"""
-	txs = list()
-	receiver_addrs = list()
-	for receiver in receivers:
-		if isinstance(receiver, Wallet):
-			receiver_addrs.append(receiver.addr)
-		else:
-			receiver_addrs.append(receiver)
-
-	for i in range(len(receiver_addrs)):		# for each receiver send transaction
-		assist.create_progress_bar(i, len(receiver_addrs))
-		tx_hash = compose_native_transaction(w3, sender, sender.nonce + i, receiver_addrs[i], value)
-
-		txs.append(Transaction(w3.eth.chain_id, time.time(), receivers[i], sender,
-							   str(w3.fromWei(value, "ether")), tx_hash))					# add tx
-
-	threads.start_todo(update_txs, True, w3, txs)
-	return txs
-
 
 def transaction_sender_erc20(w3: Web3, erc20, token: Token, sender: Wallet, receivers: list, amount) -> list:
 	"""Receive list with receivers as Wallets, but work as str-address. That made for purpose to send TXs not
 	only to Wallets in the system. But for TXs creation give Wallets, to add TXs to the list if it's Wallet obj"""
 	txs = list()
-	receiver_addrs = list()
-	nonce = sender.nonce						# get only addresses, no objects from receiver
-	for receiver in receivers:
-		if isinstance(receiver, Wallet):
-			receiver_addrs.append(receiver.addr)
-		else:
-			receiver_addrs.append(receiver)
+	receivers_str = get_list_with_str_addresses(receivers)
+	nonce = sender.nonce
+	chain_id = w3.eth.chain_id
 
-	for i in range(len(receiver_addrs)):
-		assist.create_progress_bar(i, len(receiver_addrs))
-		tx_hash = send_erc20(w3, erc20, sender.addr, sender.key(), nonce+i, receiver_addrs[i], amount)
+	for i in range(len(receivers_str)):
+		assist.create_progress_bar(i, len(receivers_str))
+		tx_hash = send_erc20(w3, erc20, sender.addr, sender.key(), nonce+i, receivers_str[i], amount)
 
-		txs.append(Transaction(w3.eth.chain_id, time.time(), receivers[i], sender,
-							   str(convert_to_normal_view(amount, token.decimal)), tx_hash, token.symbol, token.sc_addr))
+		amount = str(convert_to_normal_view(amount, token.decimal))
+		tx = Transaction(chain_id, time.time(), receivers[i], sender, amount, tx_hash, token.symbol, token.sc_addr)
+		txs.append(tx)
 
 	threads.start_todo(update_txs, True, w3, txs)
 	return txs
-
 
 
 def send_erc20(w3: Web3, erc20, sender: str, sender_key: str, nonce, receiver: str, amount):
@@ -157,64 +203,6 @@ def send_erc20(w3: Web3, erc20, sender: str, sender_key: str, nonce, receiver: s
 	signed = w3.eth.account.sign_transaction(raw_tx, sender_key)
 	tx_hash = w3.eth.send_raw_transaction(signed.rawTransaction)
 	return w3.toHex(tx_hash)  # return TX
-
-
-def compose_native_transaction(w3: Web3, sender: Wallet, nonce, receiver: Wallet, value) -> Transaction:
-	"""
-	Tries to send transaction with the last ETH updates. But it won't work for networks that didn't update
-	So I wrote also second variant to send transaction, that happens when we receive an error
-	:return: transaction hash, string
-	"""
-	chain_id = w3.eth.chain_id
-
-	try:  # Usual way that should work
-		logs.pr_trans("compose_transaction_and_send: try to send transaction, type #2")
-		tx = {
-			"from": sender.addr,
-			"to": receiver,
-			"gas": 21000,
-			"maxFeePerGas": manager.Manager.gas_price,
-			"maxPriorityFeePerGas": manager.Manager.max_priority,
-			"value": value,
-			"data": b'',
-			"nonce": nonce,
-			"type": 2,
-			"chainId": chain_id
-		}
-		tx_hash = send_native_coin(w3, tx, sender.key())
-	except Exception:
-		# When something wrong (wrong network etc..) - the last try.. can work because some networks
-		# don't have ETH updates and don't support new gas type
-		logs.pr_trans("compose_transaction_and_send: Fail")
-		logs.pr_trans("compose_transaction_and_send: try to send transaction no-type")
-		tx = {
-			"to": receiver,
-			"nonce": sender.nonce,
-			"gas": 21000,
-			"gasPrice": manager.Manager.gas_price,
-			"value": value,
-			"chainId": chain_id
-		}
-		tx_hash = send_native_coin(w3, tx, sender.key())
-	finally:
-		logs.pr_trans("compose_transaction_and_send: successfully sent")
-
-	return tx_hash
-
-
-def send_native_coin(w3: Web3, tx: dict, key) -> str:
-	"""
-	Sends transaction when sends only native coins (ETH, BNB etc)
-	:param w3: Web3 obj
-	:param tx: dict with transaction data
-	:param key:
-	:return: transaction hash or None if failed
-	"""
-	logs.pr_trans("send_native_coin: try to send a transaction", end=" ")
-	signed_tx = w3.eth.account.sign_transaction(tx, key)				# sing
-	tx_hash = w3.eth.send_raw_transaction(signed_tx.rawTransaction)	# send
-	logs.pr_trans("send_native_coin: successfully sent the transaction")
-	return w3.toHex(tx_hash)											# return TX
 
 
 def update_txs(w3: Web3, txs_list: list):
