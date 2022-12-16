@@ -31,8 +31,10 @@ def main():
                 case "2g":                            # Generate wallets
                     m.try_generate_wallets()
                 case "2e":                            # Export wallet
-                    if assist.confirm():
+                    if assist.confirm(print_before="> Your data will be unprotected."):
                         m.export_wallets()
+                case "2i":
+                    m.import_wallets()
                 case "3":                             # Delete wallets
                     m.try_delete_wallet()
                 case "3t":                            # Delete all transactions
@@ -43,17 +45,18 @@ def main():
                     m.try_send_transaction()
                 case "5":                             # empty
                     pass
-                case "upd":                           # last block info
+                case "upd":                           # update wallets
                     m.update_wallets()
-                case "01":                            # check connection
+                case "label":                         # change label
+                    m.change_label()
+                case "01":                            # last block info
                     m.print_block_info()
-                case "02":                             # update wallets
+                case "02":                            # check connection
                     m.connection_status()
                 case "03":
                     print_gas_price_info()
                 case "t":       # print txs in every wallet
-                    print("Gas in the system {} gwei".format(Web3.fromWei(Manager.gas_price, "gwei")))
-                    print("Priority in the system {} gwei".format(Web3.fromWei(Manager.max_priority, "gwei")))
+                    pass
                 case "th":       # print total threads
                     print(len(threading.enumerate()), " : ", threading.enumerate())
                 case "tt":

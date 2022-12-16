@@ -1,3 +1,4 @@
+import binascii
 import os
 import pickle
 import time
@@ -100,17 +101,21 @@ def generate_label(set_with_labels):
 		number = int(random() * 10 ** settings.label_gen_length)	# it works..
 		if number >= 10 ** (settings.label_gen_length - 1):
 			label = str(number)
-			if label not in set_with_labels:	# check it's unique
-				return label					# return
+			try:
+				check_label(set_with_labels, label)
+				return label
+			except ValueError as e:
+				raise ValueError(" >Wrong settings, can't generate the label:", e)
 
 
-def ask_label(set_with_labels: set):
-	print(texts.ask_label_instruction)
+def ask_label(set_with_labels: set, instruction: str = None):
+	if instruction is None:
+		instruction = texts.ask_label_instruction
+	print(instruction)
 	while True:
 		label = input("\t>> ").strip()
 		if not label:									# If empty - generate number
 			return generate_label(set_with_labels)
-
 		try:
 			check_label(set_with_labels, label)			# Check if it's Ok.
 			return label									# and return
@@ -119,7 +124,7 @@ def ask_label(set_with_labels: set):
 
 
 def check_label(label_set: set, label):
-	if label.lower() == "exit":  															# Check exit
+	if label.lower() == "exit" or label.lower() == "e": 		# Check exit
 		raise InterruptedError(texts.exited)
 
 	if len(label) > settings.label_max_length or len(label) < settings.label_min_length:  	# Check length
@@ -128,31 +133,50 @@ def check_label(label_set: set, label):
 	if not label.isalnum():
 		raise ValueError(texts.label_wrong_letters)
 
-	if label in label_set:  # Then check if the label exist
-		raise ValueError(texts.label_exist)
+	if label_set:				# Then check if the label exist
+		if label in label_set:
+			raise ValueError(texts.label_exist)
+
+
+def check_private_key(keys: set, wallets: list, key: str):
+	if not key:
+		raise InterruptedError(texts.exited)
+
+	if not is_it_key(key):
+		raise ValueError(texts.error_not_private_key)
+
+	if keys:									# if keys not empty...
+		if key in keys:  						# If exits - tell the label of the wallet
+			label = "> Mistake, can't find"
+			for wallet in wallets:  			# find this wallet
+				if key == wallet.key():  		# if this wallet - same what the user wrote
+					label = wallet.label  		# get the label
+			raise ValueError(texts.error_wallet_exist_with_label.format(label))
+
+	try:									# last check - to be sure that's
+		Account.privateKeyToAccount(key).address	# 100% private key
+	except binascii.Error:
+		raise ValueError(texts.error_not_private_key)
 
 
 
-def update_wallet(w3: Web3, wallet: Wallet, set_labels: set, update_tx=False):
+def generate_wallets(w3, set_labels, set_keys, number) -> list:
+	"""Generates wallets and returns list with updates wallets
+	:return: list with updated Wallets
 	"""
-	Receives Wallet. If the wallet doesn't have an address - method parses it and adds
-	After that it updates balance and transaction count
-	"""
-	assert isinstance(wallet, Wallet), texts.error_cant_update
-	if not wallet.addr or not wallet.addr_lower:  					# if the wallet doesn't have address
-		key = wallet.key()  										# get private key
-		wallet.addr = Account.privateKeyToAccount(key).address  	# parse the address and add
-		wallet.addr_lower = wallet.addr.lower()
+	new_generated_wallets = list()
+	list_daemons = list()
+	print(f"> Started the generation {number} wallets")
+	for _ in range(number):
+		while not threads.can_create_daemon():		# If we can't create daemon - sleep
+			if number > 50:							# or draw progress bar
+				create_progress_bar(len(new_generated_wallets), number)
+			time.sleep(settings.wait_to_create_daemon_again)
 
-	if wallet.label is None:
-		wallet.label = generate_label(set_labels)
-
-	wallet.balance_in_wei = w3.eth.get_balance(wallet.addr)  		# update balance
-	wallet.nonce = w3.eth.get_transaction_count(wallet.addr)  		# update nonce
-
-	if update_tx:
-		update_txs_for_wallet(wallet)  # updates txs list and each tx if status == None
-		[trans.update_tx(w3, tx) for tx in wallet.txs if tx.status is None]
+		daemon = threads.start_todo(generate_wallet, False, w3, set_labels, set_keys, new_generated_wallets)
+		list_daemons.append(daemon)										# add to the list
+	[daemon.join() for daemon in list_daemons if daemon.is_alive()]		# wait till they finish
+	return new_generated_wallets										# return the list
 
 
 def generate_wallet(w3, set_labels, set_keys, result_list):
@@ -169,23 +193,41 @@ def generate_wallet(w3, set_labels, set_keys, result_list):
 		generate_wallet(w3, set_labels, set_keys, result_list)	# just in case...
 
 
-def generate_wallets(w3, set_labels, set_keys, number) -> list:
-	"""Generates wallets and returns list with updates wallets
-	:return: list with updated Wallets
-	"""
-	new_generated_wallets = list()
+def update_wallets(w3: Web3, wallets, set_labels):
+	"""Create threads to update wallets and sync TXs"""
+	assert wallets, texts.no_wallets
+
 	list_daemons = list()
-	print(f"> Started the generation {number} wallets")
-	for _ in range(number):
-		while not threads.can_create_daemon():		# If we can create daemon - sleep
-			if number > 50:
-				create_progress_bar(len(new_generated_wallets), number)
+	for wallet in wallets:  # for each wallet
+		if threads.can_create_daemon():  # if allowed thread creating - start a new thread
+			thread = threads.start_todo(update_wallet, True, w3, wallet, set_labels, True)
+			list_daemons.append(thread)  # add thread to the list
+		else:
 			time.sleep(settings.wait_to_create_daemon_again)
 
-		daemon = threads.start_todo(generate_wallet, False, w3, set_labels, set_keys, new_generated_wallets)
-		list_daemons.append(daemon)										# add to the list
-	[daemon.join() for daemon in list_daemons if daemon.is_alive()]		# wait till they finish
-	return new_generated_wallets										# return the list
+	[daemon.join() for daemon in list_daemons if daemon.is_alive()]  # wait will all threads finish
+
+
+def update_wallet(w3: Web3, wallet: Wallet, set_labels: set, update_tx=False):
+	"""
+	Receives Wallet. If the wallet doesn't have an address - method parses it and adds
+	After that it updates balance, nonce & sync TXs if asked
+	"""
+	assert isinstance(wallet, Wallet), texts.error_cant_update
+	if not wallet.addr or not wallet.addr_lower:  					# if the wallet doesn't have address
+		key = wallet.key()  										# get private key
+		wallet.addr = Account.privateKeyToAccount(key).address  	# parse the address and add
+		wallet.addr_lower = wallet.addr.lower()
+
+	if wallet.label is None:
+		wallet.label = generate_label(set_labels)
+
+	wallet.balance_in_wei = w3.eth.get_balance(wallet.addr)  		# update balance
+	wallet.nonce = w3.eth.get_transaction_count(wallet.addr)  		# update nonce
+
+	if update_tx:
+		update_txs_for_wallet(wallet)  # updates txs list and each tx if status == None
+		[trans.update_tx(w3, tx) for tx in wallet.txs if tx.status is None]
 
 
 def get_wallet_index(wallets_list: list, set_addr: set, set_labels: set, line: str | Wallet) -> int:
@@ -215,7 +257,8 @@ def get_wallet_index(wallets_list: list, set_addr: set, set_labels: set, line: s
 			return i
 
 
-def get_addrs_from_file(path: str):
+def import_addrs(path: str):
+	"""Load addresses from a file, 1 addr per line"""
 	with open(path, "r") as reader:
 		addr_list = reader.read().strip().split("\n")
 
@@ -282,7 +325,57 @@ def export_wallets(wallets: list):
 	print("> Wallets were exported in format \"key label addr\" to >", path)
 
 
-# def import_wallets() -> list:
+def import_wallets(file_path: str, wallets: list, keys: set, labels: set) -> list:
+	"""
+	Imports wallets from file. Required format (key label addr), 1 per line. Doesn't update
+	:param file_path: full path to the file
+	:param wallets:	list with all wallets from Manager
+	:param keys: set with all keys from Manager
+	:param labels: set with all labels from Manager
+	:return: list with imported wallets
+	"""
+	unique_data = set()
+
+	def check_duplicates():					# check there's no duplicates
+		for i in range(len(elements)):
+			if elements[i] in unique_data:
+				unique_data.add(elements[i])
+				return elements[i]
+			unique_data.add(elements[i])
+		return False
+
+	wallets_list = list()
+	with open(file_path) as r:				# get info form file
+		lines = r.read().split("\n")		# divide to lines
+
+	for line in lines:						# for each lne
+		if not line:						# that isn't empty
+			continue
+		elements = line.split(" ")			# divide by space
+
+		if check_duplicates():				# check duplicates
+			print("> Found Duplicated Info, That can Crash the System > ", end="")
+			[print(x, end=" ") for x in elements]
+			print()
+			continue
+
+		key = elements[0]					# get key and check it - if not Ok - we pass it
+		try:
+			check_private_key(keys, wallets, key)
+			try:							# If Ok - get the label
+				label = elements[1]
+				check_label(labels, label)
+			except IndexError:
+				label = generate_label(labels)  	# if label not Ok - generate label
+				print("> Wasn't able to import label for the key {} | Generated > {}".format(key, label))
+			except (InterruptedError, ValueError) as e:
+				label = generate_label(labels)		# if label not Ok - generate label
+				print("> Wasn't able to import label for the key {} | Generated > {} | error: {}".format(key, label, e))
+		except (InterruptedError, ValueError) as e:
+			print("> Wasn't able to import wallet with the key: {} {}".format(key, e))
+		else:
+			wallets_list.append(Wallet(key, label))		# and finally - add the wallet to the list
+	return wallets_list
 
 
 def check_balances(balance, wish_send, receivers=1):

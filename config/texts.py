@@ -10,14 +10,16 @@ Rules of texts:
 """
 
 """For Main"""			#################################################
-instruction_main = """--------------------------------------------------- Show ----------------------------------------------------
-	 1 Wallets             1a Wallets + TXs          1t  Transactions          1at  All Txs for 1 Address
------------------------------------------------ Add wallets -------------------------------------------------
-	 2 Add Wallet          2g Generate wallets	     2e Export wallets
--------------------------------------------------- Delete ---------------------------------------------------
-	 3 Delete wallets      3t Delete All TXs                                   4 Send ETH / ERC-20
+instruction_main = """\
+------------------------------------------------------ Show -------------------------------------------------------
+	 1 Wallets               1a Wallets + TXs             1t  Transactions          1at  All Txs for 1 Address
+-------------------------------------------------- Add wallets ----------------------------------------------------
+	 2 Add Wallet            2g Generate wallets	      2i Import wallets         2e Export wallets from the app
+----------------------------------------------------- Delete ------------------------------------------------------
+	 3 Delete wallets        3t Delete All TXs                                      4 Send ETH / ERC-20
 
-  upd - update wallets | 01 - last block info | 02 - check connection | 03 - gas info |  e - exit | new new new"""
+upd - update wallets | label - to change | 01 - last block info | 02 - check connection | 03 - gas info |  e - exit\
+"""
 wrong_command_main = "> Wrong command. If you need instruction - print h"
 
 # General
@@ -43,10 +45,9 @@ init_files = "\tInitialize addition system files..."
 init_finished = "Init is finished."
 
 # Add / Generate wallet:
-input_private_key = "Private key >> "
+input_private_key = "Input private key (or text \"file\" to import) >> "
 added_wallet = "> Successfully added the wallet: {}"
-error_not_private_key = f"> Error, it isn't private key. " \
-						 f"Key should start with 0x and Length should be {str(private_key_length)}"
+error_not_private_key = f"> Error, it isn't private key 100%."
 error_wallet_exist_with_label = "> Error, the key is already added to the system with the label: \"{}\""
 ask_label_instruction = f"> Only letters and numbers, no spaces, min length = {label_min_length}, " \
 						f"max length = {label_max_length}. Leave empty to get random. Write desired label:"
@@ -56,6 +57,7 @@ label_exist = "> This label exists in the system."
 error_max_wallet_created = "> Already created max amount of wallets, {} of {}\n" + exited
 error_wrong_generate_number = "> Allowed to create {} more wallets in total (exists {} of {} max). " \
 							  "I can generate from 1 to {}, you asked: {}"
+get_path = "Full path to the file >> "
 
 # Sets add - delete
 error_add_to_set = "> Error in \"add_to_set\" method, {addr-label-key} already exist in the set"
@@ -82,3 +84,4 @@ error_no_such_address = "> The address you wrote doesn't exist in the system"
 error_block_doesnt_exist_yet = "> The block doesn't exist in the blockchain yet"
 error_no_info_about_last_block = "> No info about the last block"
 error_cant_update = "> Not a wallet, can't update, tell the devs >> update_wallet"
+change_label = "> Successfully changed old \"{}\" to new \"{}\" for {}"

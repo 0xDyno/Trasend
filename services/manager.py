@@ -169,6 +169,10 @@ class Manager:
 		self.wallets.append(wallet)				# add to the list
 		self._add_to_sets(wallet)				# add to the sets
 
+	def _add_wallets(self, wallets: list):
+		for wallet in wallets:
+			self._add_wallet(wallet)
+
 	def _delete_wallet(self, index_or_wallet):
 		"""
 		Deletes wallet from list and sets by its Index in the list or Wallet obj
@@ -271,7 +275,7 @@ class Manager:
 			self.wallets = loaded_data
 			print(texts.success)  					# End - Success
 
-	###################################################################################################
+###################################################################################################
 # Default methods #################################################################################
 ###################################################################################################
 
@@ -281,32 +285,24 @@ class Manager:
 		created = len(self.wallets)
 		while True:
 			assert created < max_, texts.error_max_wallet_created.format(created, max_)
+			key = input(texts.input_private_key)
 
-			key = self.print_ask(text_in_input=texts.input_private_key, do_print=False)
-			# If starts not with 0x or length not 66 symbols - tell about mistake
-			assert assist.is_it_key(key), texts.error_not_private_key
-			if not assist.is_it_key(key):
-				print(texts.error_not_private_key)
-				continue
-			elif key in self.set_keys:  			# If exits - tell the label of the wallet
-				label = "Hmmm... unknown.. tell the devs"
-				for wallet in self.wallets:  		# find this wallet
-					if key == wallet.key():  			# if this wallet - same what the user wrote
-						label = wallet.label  			# get the label
-						break  							# stop and write it
-				print(texts.error_wallet_exist_with_label.format(label))
-			else:  	# If OK - add the wallet
+			try:
+				assist.check_private_key(self.set_keys, self.wallets, key)
+			except ValueError as e:
+				print(e)
+			else:
 				wallet = Wallet(key)  					# create Wallet
-
+				self.update_wallet(wallet, True)  		# update info
 				if threads.can_create_daemon():
 					thread = threads.start_todo(self.update_wallet, True, wallet, True)
 					label = self.ask_label()			# ask label
-					thread.join()
+					thread.join()						# wait daemon to finish
 				else:
 					label = self.ask_label()  			# ask label
 					self.update_wallet(wallet, True)  	# update info
 
-				wallet.label = label		# first wait for daemon to finish, then change the label
+				wallet.label = label
 				self._add_wallet(wallet)				# add wallet
 				print(texts.added_wallet.format(wallet))
 
@@ -337,10 +333,10 @@ class Manager:
 															self.set_keys.copy(),
 															number)
 			# add it to our list
-			[self._add_wallet(wallet) for wallet in new_generated_wallets]
+			self._add_wallets(new_generated_wallets)
 
 			[print(wallet.addr, wallet.key()) for wallet in new_generated_wallets]
-			print("> Generated wallets:", len(new_generated_wallets))				# print generated wallets info
+			print(f"> Generated {len(new_generated_wallets)} wallets")			# print generated wallets info
 
 	def try_delete_wallet(self):
 		""" Realisation of deleting wallets -> certain wallet, last, last N or all
@@ -386,8 +382,14 @@ class Manager:
 											  text_in_input="Your choice >> ",
 											  do_print=False)
 		if input_with_receivers == "file":
-			path = self.print_ask(text_in_input="Full path to the file >> ", do_print=False)
-			receivers = assist.get_addrs_from_file(path)
+			path = self.print_ask(text_in_input=texts.get_path, do_print=False)
+
+			try:
+				receivers = assist.import_addrs(path)
+			except FileNotFoundError:
+				print("> Wrong file")
+				return
+
 			assert receivers, "> Didn't find correct addresses in the file"
 			print("> Got", len(receivers), "addresses")
 		else:
@@ -441,26 +443,29 @@ class Manager:
 		if isinstance(delete_from_list, Wallet):		# delete 1 wallet
 			if delete_from_list in wallets:
 				wallets.remove(delete_from_list)
-		elif isinstance(delete_from_list, list):			# or delete barch of wallets
+		elif isinstance(delete_from_list, list):		# or delete barch of wallets
 			for wallet in delete_from_list:
 				if wallet in wallets:
 					wallets.remove(wallet)
 
 		return list(wallets)						# return asked wallets
 
-	def update_wallets(self):
-		assert self.wallets, texts.no_wallets
-
-		list_daemons = list()
-
-		for wallet in self.wallets:  			# for each wallet
-			if threads.can_create_daemon():  	# if allowed thread creating - start a new thread
-				thread = threads.start_todo(self.update_wallet, True, wallet, True)
-				list_daemons.append(thread)  	# add thread to the list
-			else:
-				time.sleep(settings.wait_to_create_daemon_again)
-
-		[daemon.join() for daemon in list_daemons if daemon.is_alive()]  	# wait will all threads finish
+	def change_label(self):
+		wallets: list = self.parse_wallets(self.print_ask(text_in_input="Choose wallets >> "))
+		if wallets:
+			print("> Got {} wallets, lets rename them... ".format(len(wallets)))
+		else:
+			print(texts.exited)
+		total = len(wallets)
+		for i in range(total):
+			new = self.ask_label(instruction="> {} / {}. How would you like to call it -> {}?".format(i, total,
+																										  wallets[i]))
+			old = wallets[i].label
+			wallets[i].label = new
+			self.set_labels.add(new)
+			self.set_labels.remove(old)
+			print(texts.change_label.format(old, new, wallets[i].addr))
+		print(texts.exited)
 
 	def print_block_info(self, block_number=None):
 		"""
@@ -548,6 +553,12 @@ class Manager:
 		"""Returns index of the wallet in the list with Wallet or text (addr or number)"""
 		return assist.get_wallet_index(self.wallets, self.set_addr, self.set_labels, text)
 
+	def update_wallets(self, wallets: list = None):
+		if wallets:
+			assist.update_wallets(self.w3, wallets, self.set_labels)
+		else:
+			assist.update_wallets(self.w3, self.wallets, self.set_labels)
+
 	def update_wallet(self, wallet, update_tx=False):
 		"""Updates wallet balance & nonce, adds addr if wallet doesn't have it.
 		Updates TXs in the wallet list which doesn't have status (Success/Fail)"""
@@ -556,12 +567,9 @@ class Manager:
 	def delete_txs_history(self):
 		assist.delete_txs_history(self.wallets)
 
-	def ask_label(self) -> str:
+	def ask_label(self, instruction: str = None) -> str:
 		"""Asks label and checks uniqueness"""
-		return assist.ask_label(self.set_labels.copy())
-
-	def export_wallets(self):
-		assist.export_wallets(self.wallets)
+		return assist.ask_label(self.set_labels.copy(), instruction)
 
 	def update_last_block(self):
 		self.last_block = self.w3.eth.get_block("latest")
@@ -572,6 +580,27 @@ class Manager:
 		else:
 			is_connected = texts.fail
 		print("Connection:", is_connected)
+
+	def export_wallets(self):
+		assist.export_wallets(self.wallets)
+
+	def import_wallets(self):
+		path = self.print_ask(do_print=False, text_in_input=texts.get_path)
+		try:
+			new_wallets = assist.import_wallets(path, self.wallets, self.set_keys, self.set_labels)
+		except FileNotFoundError:
+			print("> Wrong path to the file\n", texts.exited)
+			return
+
+		if new_wallets:
+			print("> Finished import. Updating...")
+		else:
+			print("> Finished. No wallets to import in the file.")
+
+		# add it to our list
+		self.update_wallets(new_wallets)  # update in multithreading
+		self._add_wallets(new_wallets)
+		print(f"> Imported {len(new_wallets)} wallets")
 
 ###################################################################################################
 # Finish ##########################################################################################
