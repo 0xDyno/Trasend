@@ -45,12 +45,12 @@ init_files = "\tInitialize addition system files..."
 init_finished = "Init is finished."
 
 # Add / Generate wallet:
-input_private_key = "Input private key (or text \"file\" to import) >> "
+input_private_key = "Input private key >> "
 added_wallet = "> Successfully added the wallet: {}"
 error_not_private_key = f"> Error, it isn't private key 100%."
 error_wallet_exist_with_label = "> Error, the key is already added to the system with the label: \"{}\""
-ask_label_instruction = f"> Only letters and numbers, no spaces, min length = {label_min_length}, " \
-						f"max length = {label_max_length}. Leave empty to get random. Write desired label:"
+ask_label_instruction = f"> Write desired label (only letters and numbers, no spaces, " \
+						f"min length = {label_min_length}, max length = {label_max_length}) Leave empty to get random."
 label_wrong_length = "> Wrong length, should be from {} to {}, got {}."
 label_wrong_letters = "> Wrong label, spaces and symbols !.,*@&#)!% not allowed"
 label_exist = "> This label exists in the system."
@@ -73,7 +73,7 @@ del_out_of_index = "> Wrong amount - there are no so many wallets that you want 
 what_to_send = "Press Enter to send {} or drop me contract address (token) >> "
 error_not_contract_address = "> That's not contract address 100%, check it one more time and try again."
 choose_receivers = """> Choose receivers, they should be separated by spaces (1 2 any_label 6 21991656 0x690b9... etc)
-\t\t\t'all' - to send all | 'file' - load from file"""
+\t\t\t'all' - send to all | 'file' - load from file"""
 tx_received = "Received"
 tx_sent = "Sent"
 

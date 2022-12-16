@@ -31,8 +31,8 @@ multiply_gas_price = 1.2		# to multiply gas price (won't be used more, then requ
 multiply_priority = 1.5			# to multiply priority (will be paid full price 100%)
 
 # If current GasPrice * MultiplyGasPrice < than minimum - then will be used min
-min_gas_price = 10				# in gwei
-min_priority = 2				# in gwei
+min_gas_price = 3				# in gwei
+min_priority = 0.5				# in gwei
 gas_native = 21000
 # gas and average gas for erc20 - just in case estimating didn't work.
 gas_erc20 = 100000				# max gas to send ETC20 token
