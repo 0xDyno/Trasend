@@ -25,8 +25,8 @@ class Wallet:
         self.txs = list()               # list with Transaction objects
 
     def __str__(self):
-        format_ = "%s %s %s (balance: %.4f ETH)"
-        return format_ % (self.addr, self.label, spaces(self.label), self.get_eth_balance())
+        format_ = "{:<" + str((settings.label_max_length + 1)) + "} {} (balance: {:.4f} ETH)"
+        return format_.format(self.label, self.addr, float(self.get_eth_balance()))
 
     def __repr__(self):
         return f"{id(self)} - Wallet obj - addr {self.addr}"

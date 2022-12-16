@@ -68,14 +68,14 @@ def print_wallets(list_with_wallets):
 	"""Prints wallets with its index"""
 	length = len(list_with_wallets)
 	for i in range(length):  						# print all addresses
-		print(f"{i + 1}. {list_with_wallets[i]}")  	# with its index
+		print("{:>3}. {}".format(i + 1, list_with_wallets[i]))
 
 
 def print_all_info(list_with_wallets):
 	"""Prints wallets with its index and TXs list"""
-	length = len(list_with_wallets)
-	for i in range(length):											# prints info with TXs
-		print(f"{i + 1}. {list_with_wallets[i].get_all_info()}")  	# and its index
+	length = len(list_with_wallets)									# prints info with TXs
+	for i in range(length):											# and its index
+		print("{:>3}. {}".format(i + 1, list_with_wallets[i].get_all_info()))
 
 
 def print_all_txs(chain_id: int):
