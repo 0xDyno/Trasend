@@ -39,6 +39,10 @@ def get_max_fee(gas: int):
 
 def print_price_and_confirm_native(chain_id, value, receivers: int) -> bool:
 	"""Prints the price for the transaction and ask to confirm before sending """
+	if receivers > 1:
+		tr = "transactions"
+	else:
+		tr = "transaction"
 	coin = settings.chain_default_coin[chain_id]
 	base_fee = (manager.Manager.network_gas_price + manager.Manager.max_priority) * settings.gas_native
 	max_fee = (manager.Manager.gas_price + manager.Manager.max_priority) * settings.gas_native
@@ -49,24 +53,28 @@ def print_price_and_confirm_native(chain_id, value, receivers: int) -> bool:
 
 	total_base = base_fee + total_send
 	total_max = max_fee + total_send
-	ask = f"Amount: {total_send:.4f} {coin}\n" \
+	ask = f"\nFor {receivers} {tr}. Amount: {total_send:.3f} {coin}\n" \
 		  f"Base Fee: {base_fee:.4f} {coin} | Max Fee: {max_fee:.4f} {coin}\n" \
-	  	  f"Base Total: {total_base:.4f} {coin} | Max Total {total_max:.4f} {coin}\n"
+	  	  f"Total: {total_base:.4f} {coin} (max {total_max:.4f} {coin})\n"
 	return assist.confirm(print_before=ask)
 
 
 def print_price_and_confirm_erc20(token: Token, erc20, sender, receivers: int, amount) -> bool:
 	symb = token.symbol
 	coin = settings.chain_default_coin[token.chain_id]
+	if receivers > 1:
+		tr = "transactions"
+	else:
+		tr = "transaction"
 
 	try:		# Count Base & Max fee from Estimated gas * multiplier
 		data = {"from": sender.addr}
 		gas = int(erc20.functions.transfer(sender.addr, amount).estimateGas(data) * settings.multiply_gas)
-		base_fee = manager.Manager.network_gas_price * gas
+		base_fee = (manager.Manager.network_gas_price + manager.Manager.max_priority) * gas
 		max_fee = (manager.Manager.gas_price + manager.Manager.max_priority) * gas
 	except Exception as e:		# If we can't do it by some reason - use default settings
 		print("Failed to get live gas required, use the settings. Error: " + e)
-		base_fee = manager.Manager.network_gas_price * settings.average_gas_erc20
+		base_fee = (manager.Manager.network_gas_price + manager.Manager.max_priority) * settings.average_gas_erc20
 		max_fee = (manager.Manager.gas_price + manager.Manager.max_priority) * settings.gas_erc20
 
 	amount = convert_to_normal_view(amount, token.decimal)
@@ -75,7 +83,7 @@ def print_price_and_confirm_erc20(token: Token, erc20, sender, receivers: int, a
 	total_fee_base = Web3.fromWei(base_fee * receivers, "ether")
 	total_fee_max = Web3.fromWei(max_fee * receivers, "ether")
 
-	ask = f"Tokens: {total_send:.2f} {symb}\n" \
+	ask = f"\nFor {receivers} {tr}. Tokens: {total_send:.2f} {symb}\n" \
 		  f"Base Fee: {total_fee_base:.4f} {coin} | Max Can Be Used: {total_fee_max:.4f} {coin}\n"
 	return assist.confirm(print_before=ask)
 
