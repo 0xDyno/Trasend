@@ -283,10 +283,8 @@ class Manager:
 			assert created < max_, texts.error_max_wallet_created.format(created, max_)
 
 			key = self.print_ask(text_in_input=texts.input_private_key, do_print=False)
-			if not key:
-				print(texts.exited)
-				break
 			# If starts not with 0x or length not 66 symbols - tell about mistake
+			assert assist.is_it_key(key), texts.error_not_private_key
 			if not assist.is_it_key(key):
 				print(texts.error_not_private_key)
 				continue
@@ -526,31 +524,13 @@ class Manager:
 
 	def print_ask(self, text_before=None, text_after=None, text_in_input=None, do_print=True) -> str:
 		"""Prints text if given, prints wallet list if True and ask to input text. If not empty - returns
-		:param text_before: prints text before wallets list
-		:param text_after: prints text after wallets list
-		:param text_in_input: print text and ask to input in the same line
-		:param do_print: doesn't print wallet list if No
-		:return: user's input if it's not empty"""
-		if text_before is not None:
-			print(text_before)			# print text_before is there's
-		if do_print:
-			self.print_wallets()  		# prints wallets
-		if text_after is not None:
-			print(text_after)			# print text_after is there's
-		if text_in_input is not None:	# Choose how to ask - in the same line
-			users_input = input("\t" + text_in_input).strip().lower()
-		else:							# or on the next line
-			users_input = input().strip().lower()
-		assert users_input, texts.exited	# check it's not empty
-		return users_input					# return
-
-	def update_wallet(self, wallet, update_tx=False):
-		"""Updates wallet balance & nonce, adds addr if wallet doesn't have it.
-		Updates TXs in the wallet list which doesn't have status (Success/Fail)"""
-		assist.update_wallet(self.w3, wallet, self.set_labels, update_tx)
-
-	def delete_txs_history(self):
-		assist.delete_txs_history(self.wallets)
+			:param text_before: prints text before wallets list
+			:param text_after: prints text after wallets list
+			:param text_in_input: print text and ask to input in the same line
+			:param do_print: doesn't print wallet list if No
+			:return: user's input if it's not empty"""
+		return assist.print_ask(self.wallets, text_before=text_before, text_after=text_after,
+								text_in_input=text_in_input, do_print=do_print)
 
 	def print_txs_for_wallet(self):
 		"""Prints TXs for selected wallet in current blockchain"""
@@ -567,6 +547,14 @@ class Manager:
 	def get_wallet_index(self, text: str | Wallet) -> int:
 		"""Returns index of the wallet in the list with Wallet or text (addr or number)"""
 		return assist.get_wallet_index(self.wallets, self.set_addr, self.set_labels, text)
+
+	def update_wallet(self, wallet, update_tx=False):
+		"""Updates wallet balance & nonce, adds addr if wallet doesn't have it.
+		Updates TXs in the wallet list which doesn't have status (Success/Fail)"""
+		assist.update_wallet(self.w3, wallet, self.set_labels, update_tx)
+
+	def delete_txs_history(self):
+		assist.delete_txs_history(self.wallets)
 
 	def ask_label(self) -> str:
 		"""Asks label and checks uniqueness"""

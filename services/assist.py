@@ -41,6 +41,28 @@ def get_fernet_key():
 		return r.read()
 
 
+def print_ask(wallets, text_before=None, text_after=None, text_in_input=None, do_print=True) -> str:
+	"""Prints text if given, prints wallet list if True and ask to input text. If not empty - returns
+	:param wallets: list with wallets
+	:param text_before: prints text before wallets list
+	:param text_after: prints text after wallets list
+	:param text_in_input: print text and ask to input in the same line
+	:param do_print: doesn't print wallet list if No
+	:return: user's input if it's not empty"""
+	if text_before is not None:
+		print(text_before)			# print text_before is there's
+	if do_print:
+		print_wallets(wallets)  		# prints wallets
+	if text_after is not None:
+		print(text_after)			# print text_after is there's
+	if text_in_input is not None:	# Choose how to ask - in the same line
+		users_input = input("\t" + text_in_input).strip().lower()
+	else:							# or on the next line
+		users_input = input().strip().lower()
+	assert users_input, texts.exited	# check it's not empty
+	return users_input					# return
+
+
 def print_wallets(list_with_wallets):
 	"""Prints wallets with its index"""
 	length = len(list_with_wallets)
@@ -83,27 +105,32 @@ def generate_label(set_with_labels):
 
 
 def ask_label(set_with_labels: set):
-	min_ = settings.label_min_length
-	max_ = settings.label_max_length
 	print(texts.ask_label_instruction)
 	while True:
 		label = input("\t>> ").strip()
 		if not label:									# If empty - generate number
 			return generate_label(set_with_labels)
-		elif label.lower() == "exit":  					# If "exit" - exit
-			raise InterruptedError(texts.exited)
-		elif len(label) > max_ or len(label) < min_:	# If length < min or > than max
-			print(texts.label_wrong_length.format(min_, max_, len(label)))
-			continue
 
-		if not label.isalnum():
-			print(texts.label_wrong_letters)
-			continue
+		try:
+			check_label(set_with_labels, label)			# Check if it's Ok.
+			return label									# and return
+		except ValueError as e:			# If not
+			print(e)					# Tell the mistake
 
-		if label in set_with_labels:  			# Then check if the label exist
-			print(texts.label_exist)
-		else:  										# if not - return it
-			return label
+
+def check_label(label_set: set, label):
+	if label.lower() == "exit":  															# Check exit
+		raise InterruptedError(texts.exited)
+
+	if len(label) > settings.label_max_length or len(label) < settings.label_min_length:  	# Check length
+		raise ValueError(texts.label_wrong_length.format(settings.label_min_length,
+											  settings.label_max_length, len(label)))
+	if not label.isalnum():
+		raise ValueError(texts.label_wrong_letters)
+
+	if label in label_set:  # Then check if the label exist
+		raise ValueError(texts.label_exist)
+
 
 
 def update_wallet(w3: Web3, wallet: Wallet, set_labels: set, update_tx=False):
@@ -251,8 +278,11 @@ def export_wallets(wallets: list):
 	path = os.path.join(os.getcwd() + "/" + settings.folder + "wallet_export_" + time_ + ".txt")
 	with open(path, "w") as w:
 		for wallet in wallets:
-			w.write(f"{wallet.addr} {wallet.key()}\n")
-	print("> Wallets were exported to >", path)
+			w.write(f"{wallet.key()} {wallet.label} {wallet.addr}\n")
+	print("> Wallets were exported in format \"key label addr\" to >", path)
+
+
+# def import_wallets() -> list:
 
 
 def check_balances(balance, wish_send, receivers=1):
