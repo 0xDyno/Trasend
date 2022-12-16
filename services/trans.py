@@ -23,8 +23,8 @@ def print_gas_price_info():
 		return
 	gas = Web3.fromWei(manager.Manager.gas_price, "gwei")
 	priority = Web3.fromWei(manager.Manager.max_priority, "gwei")
-	network_gas = float(Web3.fromWei(manager.Manager.network_gas_price, "gwei")) / settings.xmultiply_gas_price
-	network_priority = float(Web3.fromWei(manager.Manager.network_max_priority, "gwei")) / settings.multiply_priority
+	network_gas = Web3.fromWei(manager.Manager.network_gas_price, "gwei")
+	network_priority = Web3.fromWei(manager.Manager.network_max_priority, "gwei")
 
 	current_gas = "Current state: gas = {:.02f} gwei, priority = {} gwei (live {:.2f}, {:.2f}) | " \
 		"settings: min gas = {} <> min prior = {}".format(gas, priority, network_gas, network_priority,
@@ -40,7 +40,7 @@ def get_max_fee(gas: int):
 def print_price_and_confirm_native(chain_id, value, receivers: int) -> bool:
 	"""Prints the price for the transaction and ask to confirm before sending """
 	coin = settings.chain_default_coin[chain_id]
-	base_fee = manager.Manager.network_gas_price * settings.gas_native
+	base_fee = (manager.Manager.network_gas_price + manager.Manager.max_priority) * settings.gas_native
 	max_fee = (manager.Manager.gas_price + manager.Manager.max_priority) * settings.gas_native
 	total_send = Web3.fromWei(value * receivers, "ether")
 
@@ -50,7 +50,7 @@ def print_price_and_confirm_native(chain_id, value, receivers: int) -> bool:
 	total_base = base_fee + total_send
 	total_max = max_fee + total_send
 	ask = f"Amount: {total_send:.4f} {coin}\n" \
-		  f"Base Fee: {base_fee:.4f} {coin} | Max Fee: {total_max:.4f} {coin}\n" \
+		  f"Base Fee: {base_fee:.4f} {coin} | Max Fee: {max_fee:.4f} {coin}\n" \
 	  	  f"Base Total: {total_base:.4f} {coin} | Max Total {total_max:.4f} {coin}\n"
 	return assist.confirm(print_before=ask)
 

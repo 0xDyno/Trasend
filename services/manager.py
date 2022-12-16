@@ -96,7 +96,6 @@ class Manager:
 			self._load_wallets()		# Load addresses
 			_load_txs()			# Load Txs
 			_load_tokens()			# Load Tokens
-
 			# Init sets if there are wallets
 			if self.wallets:
 				print(texts.init_files, end=" ")

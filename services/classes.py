@@ -5,10 +5,6 @@ from config import texts, settings
 from web3 import Web3
 
 
-def spaces(label):
-    return " " * (settings.label_max_length - len(label) + 11)
-
-
 class Wallet:
     def __init__(self, private_key, label=None):
         """
