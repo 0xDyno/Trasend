@@ -461,9 +461,9 @@ class Manager:
 			new = self.ask_label(instruction="> {} / {}. How would you like to call it -> {}?".format(i, total,
 																										  wallets[i]))
 			old = wallets[i].label
-			wallets[i].label = new
-			self.set_labels.add(new)
-			self.set_labels.remove(old)
+			wallets[i].label = new			# Add new label to Wallet
+			self.set_labels.add(new)		# Add new label to the Set
+			self.set_labels.remove(old)		# Delete old Label from the Set
 			print(texts.change_label.format(old, new, wallets[i].addr))
 		print(texts.exited)
 

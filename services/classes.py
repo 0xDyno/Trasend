@@ -5,6 +5,10 @@ from config import texts, settings
 from web3 import Web3
 
 
+def spaces(label):
+    return " " * (settings.label_max_length - len(label) + 11)
+
+
 class Wallet:
     def __init__(self, private_key, label=None):
         """
@@ -21,8 +25,8 @@ class Wallet:
         self.txs = list()               # list with Transaction objects
 
     def __str__(self):
-        format_ = "%s. %s (balance: %.4f ETH)"
-        return format_ % (self.label, self.addr, self.get_eth_balance())
+        format_ = "%s %s %s (balance: %.4f ETH)"
+        return format_ % (self.addr, self.label, spaces(self.label), self.get_eth_balance())
 
     def __repr__(self):
         return f"{id(self)} - Wallet obj - addr {self.addr}"
@@ -32,8 +36,7 @@ class Wallet:
         if self.txs:                    # + all transactions if there are
             line += " | TXs:"
             for tx in self.txs:
-                line += "\n - " + self.get_transaction_info(tx)
-            # line += "\n"
+                line += "\n --- " + self.get_transaction_info(tx)
         else:
             line += " | no tx"
 
