@@ -81,9 +81,9 @@ def print_all_info(list_with_wallets):
 
 def print_all_txs(chain_id: int):
 	"""Prints all TXs with current network (chainId)"""
-	for tx in manager.Manager.all_txs:		# prints all TXs
-		if chain_id == tx.chain_id:					# with current network
-			print(tx)
+	all_txs_for_chain = [tx for tx in manager.Manager.all_txs if chain_id == tx.chain_id]		# get all txs for chain
+	assert all_txs_for_chain, texts.no_txs_for_chain.format(settings.chain_name[chain_id])		# if no TXs - tell it
+	[print(tx) for tx in all_txs_for_chain]														# or print them
 
 
 def print_txs_for_wallet(chain_id: int, wallet: Wallet):

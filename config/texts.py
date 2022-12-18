@@ -25,6 +25,7 @@ wrong_command_main = "> Wrong command. If you need instruction - print h"
 # General
 no_wallets = "> No wallets"
 no_txs = "> No TXs"
+no_txs_for_chain = "> No TXs for current chain - {}"
 no_tokens = "> No Tokens"
 exited = "> Exited to main menu"
 success = "> Success"

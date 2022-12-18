@@ -538,6 +538,8 @@ class Manager:
 
 	def print_txs_for_wallet(self):
 		"""Prints TXs for selected wallet in current blockchain"""
+		assert self.wallets, texts.no_wallets
+		assert Manager.all_txs, texts.no_txs
 		text = self.print_ask(text_after="Choose the acc:")				# prints wallets + ask to choose
 		wallet = self.get_wallet_by_text(text)							# gets wallet from str
 		assist.print_txs_for_wallet(self.chain_id, wallet)		# prints txs for that wallet in the network
@@ -564,7 +566,10 @@ class Manager:
 		assist.update_wallet(self.w3, wallet, self.set_labels, update_tx)
 
 	def delete_txs_history(self):
-		assist.delete_txs_history(self.wallets)
+		assert Manager.all_txs, texts.no_txs
+		if assist.confirm():
+			assist.delete_txs_history(self.wallets)
+			print(texts.success)
 
 	def ask_label(self, instruction: str = None) -> str:
 		"""Asks label and checks uniqueness"""
@@ -581,7 +586,9 @@ class Manager:
 		print("Connection:", is_connected)
 
 	def export_wallets(self):
-		assist.export_wallets(self.wallets)
+		assert self.wallets, texts.no_wallets
+		if assist.confirm(print_before="> Your data will be unprotected."):
+			assist.export_wallets(self.wallets)
 
 	def import_wallets(self):
 		path = self.print_ask(do_print=False, text_in_input=texts.get_path)
@@ -607,6 +614,6 @@ class Manager:
 
 	def finish_work(self):
 		_save_txs()					# Save TXs
-		_save_tokens()				# Save Tokens
-		self.delete_txs_history()	# Delete tx_list +
+		_save_tokens()								# Save Tokens
+		assist.delete_txs_history(self.wallets)		# Delete tx_list +
 		self._save_wallets()		# Save wallets

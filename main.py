@@ -31,16 +31,13 @@ def main():
                 case "2g":                            # Generate wallets
                     m.try_generate_wallets()
                 case "2e":                            # Export wallet
-                    if assist.confirm(print_before="> Your data will be unprotected."):
-                        m.export_wallets()
+                    m.export_wallets()
                 case "2i":
                     m.import_wallets()
                 case "3":                             # Delete wallets
                     m.try_delete_wallet()
                 case "3t":                            # Delete all transactions
-                    if assist.confirm():
-                        m.delete_txs_history()
-                        print(texts.success)
+                    m.delete_txs_history()
                 case "4":                             # Send transaction (native)
                     m.try_send_transaction()
                 case "5":                             # empty
