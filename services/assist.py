@@ -67,6 +67,7 @@ def print_ask(wallets, text_before=None, text_after=None, text_in_input=None, do
 
 def print_wallets(list_with_wallets):
 	"""Prints wallets with its index"""
+	print("Doing")
 	length = len(list_with_wallets)
 	for i in range(length):  						# print all addresses
 		print("{:>3}. {}".format(i + 1, list_with_wallets[i]))

@@ -275,6 +275,33 @@ class Manager:
 			print(texts.success)  					# End - Success
 
 ###################################################################################################
+# Decorators ######################################################################################
+###################################################################################################
+
+	@staticmethod
+	def _check_wallets(func):
+		def wrapper(self, *args, **kwargs):
+			wrapper.__doc__ = func.__doc__
+			wrapper.__name__ = func.__name__
+			if not self.wallets:
+				print(texts.no_wallets)
+			else:
+				return func(self, *args, **kwargs)
+		return wrapper
+
+	@staticmethod
+	def _check_txs(func):
+		def wrapper(self, *args, **kwargs):
+			wrapper.__doc__ = func.__doc__
+			wrapper.__name__ = func.__name__
+			if not Manager.all_txs:
+				print(texts.no_txs)
+			else:
+				return func(self, *args, **kwargs)
+
+		return wrapper
+
+###################################################################################################
 # Default methods #################################################################################
 ###################################################################################################
 
@@ -337,12 +364,11 @@ class Manager:
 			[print(wallet.addr, wallet.key()) for wallet in new_generated_wallets]
 			print(f"> Generated {len(new_generated_wallets)} wallets")			# print generated wallets info
 
+	@_check_wallets
 	def try_delete_wallet(self):
 		""" Realisation of deleting wallets -> certain wallet, last, last N or all
 		If change - be careful with .lower method !!
 		"""
-		assert self.wallets, texts.no_wallets
-
 		to_delete = self.print_ask(text_after=texts.instruction_to_delete_wallet,
 							  text_in_input=">> ")
 		if not to_delete:
@@ -362,8 +388,8 @@ class Manager:
 			for wallet in self.parse_wallets(to_delete):
 				self._delete_wallet(wallet)
 
+	@_check_wallets
 	def try_send_transaction(self):
-		assert self.wallets, texts.no_wallets
 		# Get sender
 		sender_text = self.print_ask(text_in_input="Choose wallet to send >> ")
 		sender: Wallet = self.parse_wallets(sender_text)[0]
@@ -449,6 +475,7 @@ class Manager:
 
 		return list(wallets)						# return asked wallets
 
+	@_check_wallets
 	def change_label(self):
 		wallets: list = self.parse_wallets(self.print_ask(text_in_input="Choose wallets >> "))
 		if wallets:
@@ -511,19 +538,19 @@ class Manager:
 # Assist methods ##################################################################################
 ###################################################################################################
 
+	@_check_wallets
 	def print_wallets(self):
 		"""Prints wallets with its index"""
-		assert self.wallets, texts.no_wallets
 		assist.print_wallets(self.wallets)
 
+	@_check_wallets
 	def print_all_info(self):
 		"""Prints wallets with its index and TXs list"""
-		assert self.wallets, texts.no_wallets
 		assist.print_all_info(self.wallets)
 
+	@_check_txs
 	def print_all_txs(self):
 		"""Prints all TXs with current network (chain_id)"""
-		assert Manager.all_txs, texts.no_txs
 		assist.print_all_txs(self.chain_id)
 
 	def print_ask(self, text_before=None, text_after=None, text_in_input=None, do_print=True) -> str:
@@ -536,6 +563,8 @@ class Manager:
 		return assist.print_ask(self.wallets, text_before=text_before, text_after=text_after,
 								text_in_input=text_in_input, do_print=do_print)
 
+	@_check_txs
+	@_check_wallets
 	def print_txs_for_wallet(self):
 		"""Prints TXs for selected wallet in current blockchain"""
 		text = self.print_ask(text_after="Choose the acc:")				# prints wallets + ask to choose
@@ -563,6 +592,7 @@ class Manager:
 		Updates TXs in the wallet list which doesn't have status (Success/Fail)"""
 		assist.update_wallet(self.w3, wallet, self.set_labels, update_tx)
 
+	@_check_txs
 	def delete_txs_history(self):
 		assist.delete_txs_history(self.wallets)
 
@@ -580,6 +610,7 @@ class Manager:
 			is_connected = texts.fail
 		print("Connection:", is_connected)
 
+	@_check_wallets
 	def export_wallets(self):
 		assist.export_wallets(self.wallets)
 
