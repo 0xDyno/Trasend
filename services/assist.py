@@ -168,7 +168,7 @@ def check_private_key(keys: set, wallets: list, key: str):
 
 def check_wallets(wallets: list) -> True:
     if not wallets:
-        return ValueError(texts.no_wallets)
+        raise ValueError(texts.no_wallets)
     return True
     
     
@@ -268,7 +268,7 @@ def get_wallet_index(wallets_list: list, set_addr: set, set_labels: set, line: s
             raise ValueError("Wrong number" + "\n" + texts.exited)
         return number - 1
     # Tho... that should be addr or label, let's check it
-    if line not in set_addr or line not in set_labels:
+    if line not in set_addr and line not in set_labels:
         raise ValueError(texts.error_no_such_address + "\n" + texts.exited)
 
     line = line.lower()
