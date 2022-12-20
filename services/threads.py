@@ -10,19 +10,19 @@ __ But I don't know how to do it....... :(
 
 
 def can_create_daemon():
-	"""Returns True if total threads < than max threads.
-	Made to limit connections to RPC"""
-	return len(threading.enumerate()) < settings.max_threads_per_time
+    """Returns True if total threads < than max threads.
+    Made to limit connections to RPC"""
+    return len(threading.enumerate()) < settings.max_threads_per_time
 
 
 def start_todo(func, daemon, *args):
-	"""
-	Start a daemon for tasks
-	:param func: Function to do
-	:param daemon: True / False
-	:param args: other args..
-	:return: created thread
-	"""
-	thread = threading.Thread(target=func, daemon=daemon, args=args)
-	thread.start()
-	return thread
+    """
+    Start a daemon for tasks
+    :param func: Function to do
+    :param daemon: True / False
+    :param args: other args..
+    :return: created thread
+    """
+    thread = threading.Thread(target=func, daemon=daemon, args=args)
+    thread.start()
+    return thread

@@ -1,15 +1,14 @@
 import threading
-
+from web3 import Web3
 from urllib3.exceptions import MaxRetryError, NewConnectionError
 
 import config.settings
 from config import texts
 from services.manager import Manager
 from services.trans import print_gas_price_info
-from services import assist
 from config.keys import HTTPS_GOERLI, HTTPS_ETH
 
-from web3 import Web3
+
 
 
 def main():
