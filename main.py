@@ -1,6 +1,8 @@
 import threading
-from web3 import Web3
 from urllib3.exceptions import MaxRetryError, NewConnectionError
+
+from web3 import Web3
+from requests import ConnectTimeout
 
 import config.settings
 from config import texts
@@ -56,7 +58,8 @@ def main():
                 case "th":       # print total threads
                     print(len(threading.enumerate()), " : ", threading.enumerate())
                 case "tt":
-                    for token in Manager.all_tokens:
+                    print(Manager.all_tokens)
+                    for token in Manager.all_tokens[f"tokens_{m.w3.eth.chain_id}"]:
                         chain = config.settings.chain_name[token.chain_id]
                         print("{}: {} {} {}".format(chain, token.symbol, token.sc_addr, token.decimal))
                 case "tset":
@@ -71,7 +74,7 @@ def main():
                     print(texts.wrong_command_main)
         except (AssertionError, TypeError, IndexError, ValueError, InterruptedError) as e:
             print(e)
-        except (ConnectionError, MaxRetryError, NewConnectionError):
+        except (ConnectionError, MaxRetryError, NewConnectionError, ConnectTimeout):
             print("Error with connection. Probably you don't have internet connection.")
         except KeyboardInterrupt:
             print("Finished")
@@ -81,7 +84,7 @@ def main():
 if __name__ == "__main__":
     try:
         print(texts.trying_connect, end=" ")
-        connection = Web3(Web3.HTTPProvider(HTTPS_ETH))
+        connection = Web3(Web3.HTTPProvider(HTTPS_GOERLI))
         print(texts.success)
         m = Manager(connection)
     except (ConnectionError, MaxRetryError, NewConnectionError):

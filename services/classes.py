@@ -1,8 +1,9 @@
 from datetime import datetime
 import webbrowser
 
-from config import texts, settings
 from web3 import Web3
+
+from config import texts, settings
 
 
 class Wallet:
@@ -21,8 +22,11 @@ class Wallet:
         self.txs = list()               # list with Transaction objects
 
     def __str__(self):
-        format_ = "{:<" + str((settings.label_max_length + 1)) + "} {} (balance: {:.4f} ETH)"
-        return format_.format(self.label, self.addr, float(self.get_eth_balance()))
+        length = str(settings.label_max_length + 1)
+        format_ = "{:<" + length + "} {} (balance: {:.4f} ETH)"
+        
+        balance = self.get_eth_balance()
+        return format_.format(self.label, self.addr, float(balance))
 
     def __repr__(self):
         return f"{id(self)} - Wallet obj - addr {self.addr}"
@@ -56,7 +60,7 @@ class Wallet:
             sender_or_receiver = "from " + tx.sender
         else:
             sender_or_receiver = "to " + tx.receiver
-        link = settings.chain_explorers[tx.chain_id] + settings.tx_slash + tx.tx      # get explorer + tx = link
+        link = settings.chain_explorers[tx.chain_id] + "tx/" + tx.tx      # get explorer + tx = link
         blockchain = settings.chain_name[tx.chain_id]
 
         format_ = "({blockchain}) {status}: {tx_type} {value} {token} {sender_or_receiver} on {date} ({link})"
@@ -109,9 +113,9 @@ class Transaction:
     def str_no_bc(self):
         """Returns text with no BlockChain info"""
         string = "From {sender} sent {amount} {token} to {receiver} on {date}\n\t\t{status}, link: {link}"
-        link = settings.chain_explorers[self.chain_id] + settings.tx_slash + self.tx
-        return string.format(sender=self.sender, amount=self.value, token=self.symbol,
-                             receiver=self.receiver, date=self.get_time(), status=self.status, link=link)
+        link = settings.chain_explorers[self.chain_id] + "tx/" + self.tx
+        return string.format(sender=self.sender, amount=self.value, token=self.symbol, receiver=self.receiver,
+                             date=self.get_time(), status=self.status, link=link)
 
     def get_tx_type(self, wallet: Wallet):
         """Returns the wallet is sender or receiver"""
@@ -128,23 +132,17 @@ class Transaction:
 
 
 class Token:
-    def __init__(self, chain_id: int, sc_addr: str, symbol: str, decimal: int, abi="default"):
-        """If ABI is "default" - use default ABI from settings"""
+    def __init__(self, chain_id: int, sc_addr: str, symbol: str, decimal: int, abi):
         if sc_addr is None or not sc_addr.startswith("0x") or len(sc_addr) != settings.address_length:
             raise TypeError("Can't create TX, wrong Smart-Contract Address: ", sc_addr)
+        
         self.chain_id = chain_id
         self.sc_addr = Web3.toChecksumAddress(sc_addr)
         self.symbol = symbol
         self.decimal = decimal
-        self._abi = abi
+        self.abi = abi
 
     def __str__(self):
         chain = settings.chain_default_coin[self.chain_id]
         format_ = "({chain}) {sym} - {addr} - {dec}"
         return format_.format(chain, self.symbol, self.sc_addr, self.decimal)
-
-    def get_abi(self):
-        if self._abi == "default":
-            return settings.ABI
-        else:
-            return self._abi

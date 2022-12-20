@@ -1,71 +1,35 @@
-# Import my files
-from config import texts, settings
-from services.classes import Wallet, Token
-from services import assist, trans, threads, logs
-
-# Import third-party files
-from web3 import Web3
 import time
 
+from web3 import Web3
 
-def _save_tokens():
-    assist.save_data(Manager.all_tokens, settings.folder, settings.saved_tokens)
-
-
-def _load_tokens():
-    print(texts.loading_tokens, end=" ")  		# Start
-    loaded_data = assist.load_data(settings.folder, settings.saved_tokens)
-    if loaded_data is None:
-        print(texts.no_tokens_to_load)  		# End - Tell no tokens to load
-    else:
-        Manager.all_tokens = loaded_data
-        print(texts.success)  					# End - Success
-
-
-def _save_txs():
-    assist.save_data(Manager.all_txs, settings.folder, settings.saved_txs)
-
-
-def _load_txs():
-    print(texts.loading_txs, end=" ")  			# Start
-    loaded_data = assist.load_data(settings.folder, settings.saved_txs)
-    if loaded_data is None:
-        print(texts.no_txs_to_load)  			# End - Tell no txs to load
-    else:
-        Manager.all_txs = loaded_data
-        print(texts.success)  					# End - Success
-
-
-def _initialize_dict():
-    """Init dict with sc_addrs, where key -> chain number, value -> set with addresses"""
-    for chain_id in settings.chain_name.keys():		# create list for every chain
-        Manager.dict_sc_addr[chain_id] = set()
-
-    if not Manager.all_tokens:
-        return
-
-    for token in Manager.all_tokens:				# get correct set (correct chain id) and add
-        Manager.dict_sc_addr[token.chain_id].add(token.sc_addr)		# smart contract to it
-
+from config import texts, settings
+from services import assist, trans, threads, logs
+from services.classes import Wallet
+    
 
 class Manager:
     """
-    Class Manager to manage wallets and all operations that change data directly
-    All operations that don't change data directly located in assist.py
-    All operations that related to transaction located in trans.py
+    To manage wallets and all operations. Realisation for:
+    > operations that don't change data directly - located in assist.py
+    > operations that related to transaction     - located in trans.py
+    
+    all_tokes -> dict
+        for each chain:
+            - tokens_chainID    -> set with tokens
+            - addresses_chainID -> set with addresses (lower case)
     """
     __singleton = None
-    all_txs = list()		# set with all TX objects
-    all_tokens = set()		# set with all Token objects
-    dict_sc_addr = dict()	# dict chain_id -> set
+    all_txs = list()
+    all_tokens = dict()
+    
     network_gas_price = None
     network_max_priority = None
     gas_price = None
     max_priority = None
 
-###################################################################################################
-# Initialization ##################################################################################
-###################################################################################################
+########################################################################################################################
+# Initialization #######################################################################################################
+########################################################################################################################
 
     def __new__(cls, *args, **kwargs):
         if cls.__singleton is None:
@@ -83,7 +47,7 @@ class Manager:
          If second time - it will use data from 1st time
         """
         if not self.is_initialized:
-            self.set_new_connection(connection)		# add Web3
+            self._set_new_connection(connection)	# add Web3
             self.is_initialized = True				# to protect creation manager again
 
             self.wallets = list()
@@ -93,15 +57,14 @@ class Manager:
             self.set_addr = set()
             self.last_block = None  	# updates every N secs by daemon
 
-            self._load_wallets()		# Load addresses
-            _load_txs()			# Load Txs
-            _load_tokens()			# Load Tokens
+            self._load_wallets()		# Load Wallets
+            self._load_txs()			# Load Txs
+            self._load_tokens()			# Load Tokens
             # Init sets if there are wallets
             if self.wallets:
                 print(texts.init_files, end=" ")
                 self.update_wallets()
                 self._initialize_sets()
-                _initialize_dict()
             print(texts.init_finished)
 
             # Start a demon to regularly update info (last block)
@@ -110,18 +73,21 @@ class Manager:
         else:
             print(f"Connection status: {self.w3.isConnected()}")
 
-    def set_new_connection(self, connection: Web3):
+    def _set_new_connection(self, connection: Web3):
         """Checks connection is Web3 and chain id is supported"""
-        assert isinstance(connection, Web3), texts.error_not_web3.format(connection, Web3)		# check connection
-        assert connection.eth.chain_id in settings.supported_chains, \
-            texts.error_chain_not_supported.format(connection.eth.chain_id)			# check chainId
-        self.w3 = connection														# set if Ok
+        if not isinstance(connection, Web3):
+            raise ValueError(texts.error_not_web3.format(connection, Web3))
+
+        if connection.eth.chain_id not in settings.supported_chains:
+            raise ValueError(texts.error_chain_not_supported.format(connection.eth.chain_id))
+        
+        self.w3 = connection
         self.chain_id = self.w3.eth.chain_id
         print(texts.connected_to_rpc.format(self.chain_id, settings.chain_name[self.chain_id]))
 
-###################################################################################################
-# Inner methods ###################################################################################
-###################################################################################################
+########################################################################################################################
+# Inner methods ########################################################################################################
+########################################################################################################################
 
     def _initialize_sets(self):
         """Init sets with wallet info"""
@@ -138,10 +104,8 @@ class Manager:
         """Adds new wallet to sets if there's no such wallet.
         If there's same data - throws Exception"""
         # if any field in the set - throw error. Else - add new wallet
-        if wallet.key() in self.set_keys \
-            or wallet.label in self.set_labels \
-            or wallet.addr_lower in self.set_addr:
-
+        if wallet.key() in self.set_keys or wallet.label in self.set_labels \
+                                         or wallet.addr_lower in self.set_addr:
             raise ValueError(texts.error_add_to_set)
         self.set_keys.add(wallet.key())
         self.set_labels.add(wallet.label)
@@ -149,19 +113,16 @@ class Manager:
 
     def _delete_from_sets(self, wallet):
         """ Deletes wallet from the sets if every field is in sets. Otherwise, throws Exception """
-        if wallet.key() not in self.set_keys \
-            or wallet.label not in self.set_labels \
-            or wallet.addr_lower not in self.set_addr:
-
+        if wallet.key() not in self.set_keys or wallet.label not in self.set_labels \
+                                             or wallet.addr_lower not in self.set_addr:
             raise ValueError(texts.error_delete_from_set)
         self.set_keys.remove(wallet.key())
         self.set_labels.remove(wallet.label)
         self.set_addr.remove(wallet.addr_lower)
 
-
     def _add_wallet(self, wallet: Wallet):
         """Adds wallet into the list and sets"""
-        assert isinstance(wallet, Wallet), "I can add only wallet and that's not wallet. Tell the devs"
+        assist.check_wallet_type(wallet)
         if not wallet.addr:								# if no addr
             self.update_wallet(wallet, True)			# get it
 
@@ -181,33 +142,40 @@ class Manager:
             index = self.get_wallet_index(index_or_wallet)
         else:
             index = index_or_wallet
-        assert isinstance(index, int), "It's not wallet or index, I don't work with it. Tell the devs"
+            
+        if not isinstance(index, int):
+            raise TypeError("It's not wallet or index, I don't work with it. Tell the devs")
 
-        wallet = self.wallets.pop(index)  # del from the list
-        self._delete_from_sets(wallet)  # del from the sets
+        wallet = self.wallets.pop(index)    # del from the list
+        self._delete_from_sets(wallet)      # del from the sets
         print(texts.deleted_successfully, wallet.addr)  # print about success
         del wallet
 
     def _delete_first_N(self, line):
         """Deletes N first wallets
-        :param line: str that starts on "first..." """
-        if line == "first":  # if first - delete first
+        :param line: str that starts on "first..."
+        """
+        if line == "first":                 # if first - delete first
             self._delete_wallet(0)
-        else:  # if more:
-            amount = int(line.split()[1])  # parse amount
-            assert amount <= len(self.wallets), texts.del_out_of_index
-            for _ in range(amount):  # delete them
+        else:                               # if more:
+            amount = int(line.split()[1])   # parse amount
+            if amount > len(self.wallets):
+                raise IndexError(texts.del_out_of_index)
+            
+            for _ in range(amount):         # delete them
                 self._delete_wallet(0)
 
     def _delete_last_N(self, line):
         """Deletes N last wallets
         :param line: str that starts on "last..." """
-        if line == "last":  # if last - delete it
+        if line == "last":                  # if last - delete it
             self._delete_wallet(len(self.wallets) - 1)
-        else:  # if more:
+        else:                               # if more:
             amount = int(line.split()[1])  	# parse amount
-            assert amount <= len(self.wallets), texts.del_out_of_index
-            for _ in range(amount):  			# delete them
+            if amount > len(self.wallets):
+                raise IndexError(texts.del_out_of_index)
+            
+            for _ in range(amount):         # delete them
                 self._delete_wallet(len(self.wallets) - 1)
 
     def _delete_all(self):
@@ -246,19 +214,19 @@ class Manager:
     def _daemon_update_gas(self):
         """Daemon updates gas price & max priority every N secs. Very important info, change with care"""
         while True:		# no change int !! That's wei, so Ok. And web3 doesn't work with float.
-            Manager.network_gas_price = self.w3.eth.gas_price
-            Manager.network_max_priority = self.w3.eth.max_priority_fee
+            self.network_gas_price = self.w3.eth.gas_price
+            self.network_max_priority = self.w3.eth.max_priority_fee
 
-            Manager.gas_price = int(Manager.network_gas_price * settings.multiply_gas_price)
-            Manager.max_priority = int(Manager.network_max_priority * settings.multiply_priority)
+            self.gas_price = int(self.network_gas_price * settings.multiply_gas_price)
+            self.max_priority = int(self.network_max_priority * settings.multiply_priority)
 
             min_gas = Web3.toWei(settings.min_gas_price, "gwei")		# change gas to min if current < min
-            if Manager.gas_price < min_gas:
-                Manager.gas_price = min_gas
+            if self.gas_price < min_gas:
+                self.gas_price = min_gas
 
             min_priority = Web3.toWei(settings.min_priority, "gwei")	# same with priority
-            if Manager.max_priority < min_priority:
-                Manager.max_priority = min_priority
+            if self.max_priority < min_priority:
+                self.max_priority = min_priority
 
             time.sleep(settings.update_gas_every)
 
@@ -274,16 +242,43 @@ class Manager:
             self.wallets = loaded_data
             print(texts.success)  					# End - Success
 
-###################################################################################################
-# Default methods #################################################################################
-###################################################################################################
+    @staticmethod
+    def _save_tokens():
+        assist.save_data(Manager.all_tokens, settings.folder, settings.saved_tokens)
+
+    @staticmethod
+    def _load_tokens():
+        print(texts.loading_tokens, end=" ")  # Start
+        loaded_data = assist.load_data(settings.folder, settings.saved_tokens)
+        if loaded_data is None:
+            print(texts.no_tokens_to_load)  # End - Tell no tokens to load
+        else:
+            Manager.all_tokens = loaded_data
+            print(texts.success)  # End - Success
+
+    @staticmethod
+    def _save_txs():
+        assist.save_data(Manager.all_txs, settings.folder, settings.saved_txs)
+
+    @staticmethod
+    def _load_txs():
+        print(texts.loading_txs, end=" ")  # Start
+        loaded_data = assist.load_data(settings.folder, settings.saved_txs)
+        if loaded_data is None:
+            print(texts.no_txs_to_load)  # End - Tell no txs to load
+        else:
+            Manager.all_txs = loaded_data
+            print(texts.success)  # End - Success
+
+########################################################################################################################
+# Default methods ######################################################################################################
+########################################################################################################################
 
     def try_add_wallet(self):
         """Parses line and adds a wallet by private key"""
-        max_ = settings.max_wallets
-        created = len(self.wallets)
         while True:
-            assert created < max_, texts.error_max_wallet_created.format(created, max_)
+            if len(self.wallets) >= settings.max_wallets:
+                raise PermissionError(texts.error_max_wallet_created.format(len(self.wallets), settings.max_wallets))
             key = input(texts.input_private_key)
 
             try:
@@ -314,17 +309,18 @@ class Manager:
             print("> Wrong number", texts.exited, sep="\n")
             return
 
-        max_ = settings.max_wallets
-        created = len(self.wallets)		# check Total Wallets less than Allowed in settings
-        assert created < max_, texts.error_max_wallet_created.format(created, max_)
+        max_allowed = settings.max_wallets
+        created = len(self.wallets)
+        if created >= max_allowed:          # check Total Wallets less than Allowed in settings
+            raise PermissionError(texts.error_max_wallet_created.format(created, max_allowed))
 
-        allowed = max_ - created		# check is Allowed to create the amount user wants
+        allowed = max_allowed - created		# check is Allowed to create the amount user wants
         if number < 1 or number > allowed or number > settings.max_generate_addr:
             if allowed > settings.max_generate_addr:
                 max_can_gen = settings.max_generate_addr
             else:
                 max_can_gen = allowed
-            print(texts.error_wrong_generate_number.format(allowed, created, max_, max_can_gen, number))
+            print(texts.error_wrong_generate_number.format(allowed, created, max_allowed, max_can_gen, number))
             print(texts.exited)
         else:							# if Allowed - get the list with created wallets
             new_generated_wallets = assist.generate_wallets(self.w3,
@@ -341,8 +337,7 @@ class Manager:
         """ Realisation of deleting wallets -> certain wallet, last, last N or all
         If change - be careful with .lower method !!
         """
-        assert self.wallets, texts.no_wallets
-
+        self.check_wallets()
         to_delete = self.print_ask(text_after=texts.instruction_to_delete_wallet,
                               text_in_input=">> ")
         if not to_delete:
@@ -363,7 +358,7 @@ class Manager:
                 self._delete_wallet(wallet)
 
     def try_send_transaction(self):
-        assert self.wallets, texts.no_wallets
+        self.check_wallets()
         # Get sender
         sender_text = self.print_ask(text_in_input="Choose wallet to send >> ")
         sender: Wallet = self.parse_wallets(sender_text)[0]
@@ -373,15 +368,12 @@ class Manager:
         # Get what to send | returns Address for Erc20 or False for native coin
         it_is_erc20 = trans.send_erc20_or(self.w3)
         if it_is_erc20:
-            it_is_erc20 = Web3.toChecksumAddress(it_is_erc20)
             daemon2 = threads.start_todo(trans.update_erc_20, True, self.w3, it_is_erc20)
 
         # Get receivers
-        input_with_receivers = self.print_ask(text_after=texts.choose_receivers,
-                                              text_in_input="Your choice >> ",
-                                              do_print=False)
+        input_with_receivers = assist.print_ask(text_after=texts.choose_receivers, text_in_input="Your choice >> ")
         if input_with_receivers == "file":
-            path = self.print_ask(text_in_input=texts.get_path, do_print=False)
+            path = assist.print_ask(text_in_input=texts.get_path)
 
             try:
                 receivers = assist.import_addrs(path)
@@ -389,40 +381,33 @@ class Manager:
                 print("> Wrong file")
                 return
 
-            assert receivers, "> Didn't find correct addresses in the file"
+            if not receivers:
+                raise ValueError("> Didn't find correct addresses in the file")
             print("> Got", len(receivers), "addresses")
         else:
             receivers = self.parse_wallets(users_input=input_with_receivers, delete_from_list=sender)
 
-        # Wait for daemons
-        daemon1.join()
-        if daemon2 is not None:
+        daemon1.join()      # wait for daemon that updates sender
+
+        if it_is_erc20:
             daemon2.join()
-
-        # Get balance if we need and show
-        if it_is_erc20:		# sc logic
-            token: Token = assist.get_smart_contract_if_have(self.w3.eth.chain_id, it_is_erc20)		# get SC token
-            erc20 = self.w3.eth.contract(address=token.sc_addr, abi=token.get_abi())				# connect to erc_20
-            amount = trans.get_amount_for_erc20(erc20, token, sender, len(receivers))				# get amount to send
-            # Ask for gee and send if Ok
-            if trans.print_price_and_confirm_erc20(token, erc20, sender, len(receivers), amount):
-                txs = trans.transaction_sender_erc20(erc20, token, sender, receivers, amount)
-            else:
-                raise InterruptedError(texts.exited)
-        else:
-            print("> Balance is >> {:.2f} {}".format(sender.get_eth_balance(),
-                                                     settings.chain_default_coin[self.w3.eth.chain_id]))
-            amount_to_send = self.print_ask(text_in_input="How much you want to send to each? >> ", do_print=False)
-            assist.check_balances(sender.get_eth_balance(), amount_to_send, len(receivers))
-
-            amount_to_send = Web3.toWei(amount_to_send, "ether")
+            token = assist.get_token(self.w3, it_is_erc20)		                        # get SC token
+            erc20 = self.w3.eth.contract(address=token.sc_addr, abi=token.abi)		    # connect to erc_20
+            
+            amount = trans.get_amount_for_erc20(erc20, token, sender, len(receivers))   # get amount to send
             # Ask for fee and send if Ok
-            if trans.print_price_and_confirm_native(self.chain_id, value=amount_to_send, receivers=len(receivers)):
-                txs = trans.transaction_sender_native(self.w3, sender, receivers, amount_to_send)  	# send txs
-            else:
+            if not trans.print_price_and_confirm_erc20(token, erc20, sender, len(receivers), amount):
                 raise InterruptedError(texts.exited)
+            txs = trans.sender_erc20(erc20, token, sender, receivers, amount)
+        else:
+            amount_to_send = trans.get_amount_for_native(self.w3, sender, receivers)
+            # Ask for fee and send if Ok
+            if not trans.print_price_and_confirm_native(self.chain_id, value=amount_to_send, receivers=len(receivers)):
+                raise InterruptedError(texts.exited)
+            txs = trans.sender_native(self.w3, sender, receivers, amount_to_send)  	# send txs
+            
         # Last step - add all TXs to the list and print them
-        [Manager.all_txs.append(tx) for tx in txs if tx not in Manager.all_txs]
+        [self.all_txs.append(tx) for tx in txs if tx not in self.all_txs]
         [print(tx) for tx in txs]
 
     def parse_wallets(self, users_input: str, delete_from_list: Wallet | list = None):
@@ -506,42 +491,47 @@ class Manager:
                         print(self.w3.toHex(el))
             else:								# if Value not list and not bytes - print it
                 print(v)
+                
+    def check_txs(self):
+        if not self.all_txs:
+            raise ValueError(texts.no_wallets)
 
-###################################################################################################
-# Assist methods ##################################################################################
-###################################################################################################
+########################################################################################################################
+# Assist methods #######################################################################################################
+########################################################################################################################
 
     def print_wallets(self):
         """Prints wallets with its index"""
-        assert self.wallets, texts.no_wallets
+        self.check_wallets()
         assist.print_wallets(self.wallets)
 
     def print_all_info(self):
         """Prints wallets with its index and TXs list"""
-        assert self.wallets, texts.no_wallets
+        self.check_wallets()
         assist.print_all_info(self.wallets)
 
     def print_all_txs(self):
         """Prints all TXs with current network (chain_id)"""
-        assert Manager.all_txs, texts.no_txs
+        self.check_txs()
         assist.print_all_txs(self.chain_id)
 
-    def print_ask(self, text_before=None, text_after=None, text_in_input=None, do_print=True) -> str:
-        """Prints text if given, prints wallet list if True and ask to input text. If not empty - returns
-            :param text_before: prints text before wallets list
-            :param text_after: prints text after wallets list
-            :param text_in_input: print text and ask to input in the same line
-            :param do_print: doesn't print wallet list if No
-            :return: user's input if it's not empty"""
+    def print_ask(self, text_before=None, text_after=None, text_in_input=None) -> str:
+        """Prints wallets and text if given, asks to input text. If empty - make exit, if not - return text
+        -> Use this when you need to print wallets.
+        -> If you don't need - use assist.print_ask()
+        :param text_before: prints text before wallets list
+        :param text_after: prints text after wallets list
+        :param text_in_input: print text and ask to input in the same line
+        :return: user's input if it's not empty"""
         return assist.print_ask(self.wallets, text_before=text_before, text_after=text_after,
-                                text_in_input=text_in_input, do_print=do_print)
+                                              text_in_input=text_in_input)
 
     def print_txs_for_wallet(self):
         """Prints TXs for selected wallet in current blockchain"""
-        assert self.wallets, texts.no_wallets
-        assert Manager.all_txs, texts.no_txs
-        text = self.print_ask(text_after="Choose the acc:")				# prints wallets + ask to choose
-        wallet = self.get_wallet_by_text(text)							# gets wallet from str
+        self.check_wallets()
+        self.check_txs()
+        text = self.print_ask(text_after="Choose the acc:")		# prints wallets + ask to choose
+        wallet = self.get_wallet_by_text(text)					# gets wallet from str
         assist.print_txs_for_wallet(self.chain_id, wallet)		# prints txs for that wallet in the network
 
     def get_wallet_by_text(self, addr_or_number) -> Wallet:
@@ -566,7 +556,7 @@ class Manager:
         assist.update_wallet(self.w3, wallet, self.set_labels, update_tx)
 
     def delete_txs_history(self):
-        assert Manager.all_txs, texts.no_txs
+        self.check_txs()
         if assist.confirm():
             assist.delete_txs_history(self.wallets)
             print(texts.success)
@@ -584,14 +574,17 @@ class Manager:
         else:
             is_connected = texts.fail
         print("Connection:", is_connected)
+        
+    def check_wallets(self):
+        return assist.check_wallets(self.wallets)
 
     def export_wallets(self):
-        assert self.wallets, texts.no_wallets
+        self.check_wallets()
         if assist.confirm(print_before="> Your data will be unprotected."):
             assist.export_wallets(self.wallets)
 
     def import_wallets(self):
-        path = self.print_ask(do_print=False, text_in_input=texts.get_path)
+        path = assist.print_ask(text_in_input=texts.get_path)
         try:
             new_wallets = assist.import_wallets(path, self.wallets, self.set_keys, self.set_labels)
         except FileNotFoundError:
@@ -608,12 +601,20 @@ class Manager:
         self._add_wallets(new_wallets)
         print(f"> Imported {len(new_wallets)} wallets")
 
-###################################################################################################
-# Finish ##########################################################################################
-###################################################################################################
+########################################################################################################################
+# Finish ###############################################################################################################
+########################################################################################################################
 
     def finish_work(self):
-        _save_txs()					# Save TXs
-        _save_tokens()								# Save Tokens
-        assist.delete_txs_history(self.wallets)		# Delete tx_list +
-        self._save_wallets()		# Save wallets
+        """
+        Saving all data before finishing the work.
+        BE CAREFUL!!
+        In current realisation for the correct operation of the program
+        > TXs should be saved and then deleted BEFORE wallets.
+        > If not - for next loading wallets will be loaded with
+            duplicated TXs inside
+        """
+        self._save_txs()					# Save TXs
+        self._save_tokens()					# Save Tokens
+        assist.delete_txs_history(self.wallets)		# Delete tx_list (+ txs from wallets)
+        self._save_wallets()		        # Save wallets

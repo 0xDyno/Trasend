@@ -1,11 +1,12 @@
 import time
 from decimal import Decimal
 
+from eth_typing import ChecksumAddress
 from web3.exceptions import BadFunctionCallOutput, ABIFunctionNotFound
+from eth_defi.token import fetch_erc20_details
+
 from services.classes import *
 from services import threads, assist, manager
-from eth_defi.token import fetch_erc20_details
-from web3 import Web3
 
 """
 Helps Manager to work with transactions
@@ -73,7 +74,7 @@ def print_price_and_confirm_erc20(token: Token, erc20, sender, receivers: int, a
         base_fee = (manager.Manager.network_gas_price + manager.Manager.max_priority) * gas
         max_fee = (manager.Manager.gas_price + manager.Manager.max_priority) * gas
     except Exception as e:		# If we can't do it by some reason - use default settings
-        print("Failed to get live gas required, use the settings. Error: " + e)
+        print("Failed to get live gas required, use the settings. Error:", e)
         base_fee = (manager.Manager.network_gas_price + manager.Manager.max_priority) * settings.average_gas_erc20
         max_fee = (manager.Manager.gas_price + manager.Manager.max_priority) * settings.gas_erc20
 
@@ -113,9 +114,9 @@ def get_list_with_str_addresses(wallets: list):
     return new_list
 
 
-def send_erc20_or(w3: Web3) -> bool | str:
+def send_erc20_or(w3: Web3) -> bool | ChecksumAddress:
     """Returns what to send - Native or ERC-20
-    False if Native, Otherwise -> address"""
+    If Native - False, If Contract - ChecksumAddress"""
     coin = settings.chain_default_coin[w3.eth.chain_id]
     what_to_send = input(texts.what_to_send.format(coin)).strip()
     if not what_to_send:  # so, that's main
@@ -123,17 +124,20 @@ def send_erc20_or(w3: Web3) -> bool | str:
 
     try:
         what_to_send = w3.toChecksumAddress(what_to_send)		# check it's address
-        if w3.eth.get_code(what_to_send):						# check it's contract
+        if w3.eth.get_code(what_to_send):   # True - if contract, False - if address
             return what_to_send									# return address
-    except Exception:
-        pass					# Otherwise that's wrong input
-    print(texts.error_not_contract_address)
-    raise InterruptedError(texts.exited)
+    except (TypeError, ValueError):
+        pass
+    finally:
+        print(texts.error_not_contract_address)  # Otherwise that's wrong input
+        raise InterruptedError(texts.exited)
 
 
 def get_amount_for_erc20(erc20, token: Token, sender: Wallet, receivers: int) -> int:
-    """Checks balance and ask how much to send to each. Return amount for EVM with decimal counted
-    :return: amount to send (if 0.01 and dec 6 -> that's 1000)"""
+    """
+    Checks balance and ask how much to send to each
+    :return: amount to send (if 0.01 and dec 6 -> that's 1000)
+    """
     balance_raw = erc20.functions.balanceOf(sender.addr).call()				# check balance and print it
     balance = Decimal(convert_to_normal_view(balance_raw, token.decimal))
     print("> Balance is >> {:.2f}".format(balance))
@@ -144,10 +148,22 @@ def get_amount_for_erc20(erc20, token: Token, sender: Wallet, receivers: int) ->
     return convert_for_machine(Decimal(wish_send), token.decimal)
 
 
+def get_amount_for_native(w3: Web3, sender: Wallet, receivers: list) -> int:
+    native_coin = settings.chain_default_coin[w3.eth.chain_id]
+    text_in_input = "How much you want send to each? >> "
+    balance = sender.get_eth_balance()
+    
+    print("> Balance is >> {:.2f} {}".format(balance, native_coin))
+    amount_to_send = assist.print_ask(text_in_input=text_in_input)
+    assist.check_balances(balance, amount_to_send, len(receivers))
+    
+    return Web3.toWei(amount_to_send, "ether")
+
+
 # SENDING NATIVE COIN
 
 
-def transaction_sender_native(w3: Web3, sender: Wallet, receivers: list, value) -> list:
+def sender_native(w3: Web3, sender: Wallet, receivers: list, value) -> list:
     """
     Sends asset from 1 wallet to N others wallets chosen amount.
     If Amount = 2 and 20 receivers, then will be sent 2*20 = 40 units
@@ -160,7 +176,7 @@ def transaction_sender_native(w3: Web3, sender: Wallet, receivers: list, value) 
 
     for i in range(len(receivers_str)):
         assist.create_progress_bar(i, len(receivers_str))
-        tx_hash = send_native(w3, chain_id, sender, nonce + i, receivers_str[i], value)
+        tx_hash = _send_native(w3, chain_id, sender, nonce + i, receivers_str[i], value)
 
         txs.append(Transaction(chain_id, time.time(), receivers[i], sender, amount, tx_hash))
 
@@ -168,7 +184,7 @@ def transaction_sender_native(w3: Web3, sender: Wallet, receivers: list, value) 
     return txs
 
 
-def send_native(w3: Web3, chain_id: int, sender: Wallet, nonce, receiver: Wallet, value) -> str:
+def _send_native(w3: Web3, chain_id: int, sender: Wallet, nonce, receiver: Wallet, value) -> str:
     """
     Tries to send transaction with the last ETH updates. But it won't work for networks that didn't update
     So I wrote also second variant to send transaction, that happens when we receive an error
@@ -207,22 +223,31 @@ def send_native(w3: Web3, chain_id: int, sender: Wallet, nonce, receiver: Wallet
 # SENDING ERC - 20 TOKENS
 
 
-
 def update_erc_20(w3: Web3, sc_addr):
+    """
+    If the Token exists - return it. If not - connect, save & return
+    :return: Token obj
+    """
     """If we don't have that contrat in the system - do connection, get info and save new Token to the system"""
-    if not assist.is_contract_exist(w3.eth.chain_id, sc_addr):
-        try:
-            erc20 = w3.eth.contract(address=sc_addr, abi=settings.ABI)		# get erc20 connection
-            symbol = erc20.functions.symbol().call()						# get symbol
-            decimal = erc20.functions.decimals().call()						# get decimal and add
-            assist.add_smart_contract_token(w3.eth.chain_id, sc_addr, symbol, decimal)
-        except (BadFunctionCallOutput, ABIFunctionNotFound):		# Longer + Not So Safe
-            erc20 = fetch_erc20_details(w3, sc_addr)				# get connection and add the token
-            assist.add_smart_contract_token(w3.eth.chain_id, sc_addr, erc20.symbol, erc20.decimals, erc20.contract.abi)
+    if assist.is_contract_exist(w3.eth.chain_id, sc_addr):
+        return assist.get_token(w3, sc_addr)
+    
+    try:
+        erc20 = w3.eth.contract(address=sc_addr, abi=settings.ABI)		# get erc20 connection
+        symbol = erc20.functions.symbol().call()						# get symbol
+        decimal = erc20.functions.decimals().call()						# get decimal and add
+        abi = settings.ABI
+    except (BadFunctionCallOutput, ABIFunctionNotFound):		        # Longer + Not So Safe
+        erc20 = fetch_erc20_details(w3, sc_addr)				        # get connection and add the token
+        symbol = erc20.symbol
+        decimal = erc20.decimals
+        abi = erc20.contract.abi
+    return assist.add_smart_contract_token(w3.eth.chain_id, sc_addr,
+                                                symbol, decimal, abi)
 
 
 
-def transaction_sender_erc20(erc20, token: Token, sender: Wallet, receivers: list, amount) -> list:
+def sender_erc20(erc20, token: Token, sender: Wallet, receivers: list, amount) -> list:
     """Receive list with receivers as Wallets, but work as str-address. That made for purpose to send TXs not
     only to Wallets in the system. But for TXs creation give Wallets, to add TXs to the list if it's Wallet obj"""
     txs = list()
@@ -233,7 +258,7 @@ def transaction_sender_erc20(erc20, token: Token, sender: Wallet, receivers: lis
 
     for i in range(len(receivers_str)):
         assist.create_progress_bar(i, len(receivers_str))
-        tx_hash = send_erc20(erc20, sender.addr, sender.key(), nonce + i, receivers_str[i], amount)
+        tx_hash = _send_erc20(erc20, sender.addr, sender.key(), nonce + i, receivers_str[i], amount)
         tx = Transaction(chain_id, time.time(), receivers[i], sender, save_amount, tx_hash, token.symbol, token.sc_addr)
         txs.append(tx)
 
@@ -241,7 +266,7 @@ def transaction_sender_erc20(erc20, token: Token, sender: Wallet, receivers: lis
     return txs
 
 
-def send_erc20(erc20, sender: str, sender_key: str, nonce, receiver: str, amount):
+def _send_erc20(erc20, sender: str, sender_key: str, nonce, receiver: str, amount):
     tx_dict = {
         "from": sender,
         "chainId": erc20.web3.eth.chain_id,
