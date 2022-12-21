@@ -1,8 +1,5 @@
-import threading
-
 from web3 import Web3
 from requests import ConnectTimeout
-from requests.exceptions import HTTPError
 from urllib3.exceptions import MaxRetryError, NewConnectionError
 
 from config import texts

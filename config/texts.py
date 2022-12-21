@@ -1,4 +1,4 @@
-from config.settings import private_key_length, label_min_length, label_max_length
+from config.settings import label_min_length, label_max_length
 
 """
 Rules of texts:
