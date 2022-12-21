@@ -1,10 +1,16 @@
-"""Static""" 			#################################################
+"""Static""" 			################################################################################################
+import config.keys
+
 private_key_length = 66
 address_length = 42
 gas_for_native = 21000
 supported_chains = {1, 5, 56}
 
-""" For Manager """		#################################################
+""" For Manager """		################################################################################################
+# RPC point is used for interaction with blockchain. To use the code you should set up it. Example:
+# RPC_Point = "https://eth-mainnet.g.alchemy.com/v2/your-personal-access-code"
+RPC_Point = config.keys.HTTPS_GOERLI
+version = "v.0.1.2"
 folder = "private/"
 saved_wallets = folder + "saved_wallets"
 saved_tokens = folder + "saved_tokens"
@@ -17,14 +23,14 @@ label_min_length = 4		# Attention!! The program works property ONLY if length is
 label_max_length = 20		# Shouldn't be more, than 42
 label_gen_length = 8
 
-"""Daemons"""			#################################################
+"""Daemons"""			################################################################################################
 print_daemons_info = False			# prints info from daemons
 update_block_every = 3				# 12 secs for ETH
 update_gas_every = 5				#
 max_threads_per_time = 20			# not more than N threads
 wait_to_create_daemon_again = 1		# If no free place to create a daemon - it will wait that time before try again
 
-"""Transactions"""		#################################################
+"""Transactions"""		################################################################################################
 print_trans_info = False		# prints info when does a transaction
 multiply_gas = 1.1				# Multiply counted gas (won't be used more, then required)
 multiply_gas_price = 1.2		# to multiply gas price (won't be used more, then required)

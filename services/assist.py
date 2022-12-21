@@ -37,6 +37,19 @@ def is_it_key(line: str) -> bool:
     return line.startswith("0x") and len(line) == settings.private_key_length
 
 
+def get_new_connection() -> Web3:
+    connection = print_ask(text_in_input="Write new connection > ")
+    print(texts.trying_connect, end=" ")
+    
+    connection = Web3(Web3.HTTPProvider(connection))
+    if connection.isConnected():
+        print(texts.success)
+        return connection
+    else:
+        print(texts.fail)
+        raise ValueError(texts.exited)
+        
+
 def get_fernet_key():
     with open(settings.crypto_key, "rb") as r:
         return r.read()

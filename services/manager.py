@@ -214,20 +214,19 @@ class Manager:
     def _daemon_update_gas(self):
         """Daemon updates gas price & max priority every N secs. Very important info, change with care"""
         while True:		# no change int !! That's wei, so Ok. And web3 doesn't work with float.
-            self.network_gas_price = self.w3.eth.gas_price
-            self.network_max_priority = self.w3.eth.max_priority_fee
+            Manager.network_gas_price = self.w3.eth.gas_price
+            Manager.network_max_priority = self.w3.eth.max_priority_fee
 
-            self.gas_price = int(self.network_gas_price * settings.multiply_gas_price)
-            self.max_priority = int(self.network_max_priority * settings.multiply_priority)
+            Manager.gas_price = int(Manager.network_gas_price * settings.multiply_gas_price)
+            Manager.max_priority = int(Manager.network_max_priority * settings.multiply_priority)
 
             min_gas = Web3.toWei(settings.min_gas_price, "gwei")		# change gas to min if current < min
-            if self.gas_price < min_gas:
-                self.gas_price = min_gas
+            if Manager.gas_price < min_gas:
+                Manager.gas_price = min_gas
 
             min_priority = Web3.toWei(settings.min_priority, "gwei")	# same with priority
-            if self.max_priority < min_priority:
-                self.max_priority = min_priority
-
+            if Manager.max_priority < min_priority:
+                Manager.max_priority = min_priority
             time.sleep(settings.update_gas_every)
 
     def _save_wallets(self):
@@ -407,7 +406,7 @@ class Manager:
             txs = trans.sender_native(self.w3, sender, receivers, amount_to_send)  	# send txs
             
         # Last step - add all TXs to the list and print them
-        [self.all_txs.append(tx) for tx in txs if tx not in self.all_txs]
+        [Manager.all_txs.append(tx) for tx in txs if tx not in Manager.all_txs]
         [print(tx) for tx in txs]
 
     def parse_wallets(self, users_input: str, delete_from_list: Wallet | list = None):
@@ -492,8 +491,9 @@ class Manager:
             else:								# if Value not list and not bytes - print it
                 print(v)
                 
-    def check_txs(self):
-        if not self.all_txs:
+    @staticmethod
+    def check_txs():
+        if not Manager.all_txs:
             raise ValueError(texts.no_wallets)
 
 ########################################################################################################################
@@ -569,11 +569,8 @@ class Manager:
         self.last_block = self.w3.eth.get_block("latest")
 
     def connection_status(self):
-        if self.w3.isConnected():
-            is_connected = texts.success
-        else:
-            is_connected = texts.fail
-        print("Connection:", is_connected)
+        is_connected = "Successfully connected" if self.w3.isConnected() else "Failed to connect"
+        print(f"{is_connected} to {settings.chain_name[self.w3.eth.chain_id]}")
         
     def check_wallets(self):
         return assist.check_wallets(self.wallets)
@@ -600,6 +597,10 @@ class Manager:
         self.update_wallets(new_wallets)  # update in multithreading
         self._add_wallets(new_wallets)
         print(f"> Imported {len(new_wallets)} wallets")
+        
+    def set_new_connection(self):
+        self._set_new_connection(assist.get_new_connection())
+        self.update_wallets()
 
 ########################################################################################################################
 # Finish ###############################################################################################################
