@@ -31,4 +31,4 @@ If you need any additional functionality - DM me.
 
 ## Attention
 The code wasn't tested on ETH mainnet, so be careful.
-I don't take any responsibility for potential losses
+I don't take responsibility for any potential losses
