@@ -3,8 +3,8 @@ import time
 from web3 import Web3
 
 from config import texts, settings
-from services import assist, trans, threads, logs
-from services.classes import Wallet
+from src import assist, trans, threads, logs
+from src.classes import Wallet
     
 
 class Manager:

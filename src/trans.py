@@ -5,8 +5,8 @@ from eth_typing import ChecksumAddress
 from web3.exceptions import BadFunctionCallOutput, ABIFunctionNotFound
 from eth_defi.token import fetch_erc20_details
 
-from services.classes import *
-from services import threads, assist, manager
+from src.classes import *
+from src import threads, assist, manager
 
 """
 Helps Manager to work with transactions
@@ -128,9 +128,8 @@ def send_erc20_or(w3: Web3) -> bool | ChecksumAddress:
             return what_to_send									# return address
     except (TypeError, ValueError):
         pass
-    finally:
-        print(texts.error_not_contract_address)  # Otherwise that's wrong input
-        raise InterruptedError(texts.exited)
+    print(texts.error_not_contract_address)  # Otherwise that's wrong input
+    raise InterruptedError(texts.exited)
 
 
 def get_amount_for_erc20(erc20, token: Token, sender: Wallet, receivers: int) -> int:

@@ -10,7 +10,7 @@ supported_chains = {1, 5, 56}
 # RPC point is used for interaction with blockchain. To use the code you should set up it. Example:
 # RPC_Point = "https://eth-mainnet.g.alchemy.com/v2/your-personal-access-code"
 RPC_Point = config.keys.HTTPS_GOERLI
-version = "v.0.1.2"
+version = "0.1.2"
 folder = "private/"
 saved_wallets = folder + "saved_wallets"
 saved_tokens = folder + "saved_tokens"

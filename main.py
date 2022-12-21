@@ -4,8 +4,8 @@ from urllib3.exceptions import MaxRetryError, NewConnectionError
 
 from config import texts
 from config.settings import RPC_Point, version
-from services.manager import Manager
-from services.trans import print_gas_price_info
+from src.manager import Manager
+from src.trans import print_gas_price_info
 
 
 def main():

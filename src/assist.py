@@ -12,8 +12,8 @@ from eth_account import Account
 from cryptography.fernet import Fernet
 
 from config import settings, texts
-from services import threads, trans, manager
-from services.classes import Wallet, Token
+from src import threads, trans, manager
+from src.classes import Wallet, Token
 
 """
 File with general methods to alleviate Manager (make it easy to read)
@@ -362,11 +362,11 @@ def add_smart_contract_token(chain_id: int, sc_addr: str, symbol: str,
     # If it's a new chain and sets aren't created - create them
     tokens = f"tokens_{chain_id}"
     addr = f"addresses_{chain_id}"
-    
-    if manager.Manager.all_tokens.get(tokens) is None:
+
+    if tokens not in manager.Manager.all_tokens:
         manager.Manager.all_tokens[tokens] = set()
-    
-    if manager.Manager.all_tokens.get(addr) is None:
+
+    if addr not in manager.Manager.all_tokens:
         manager.Manager.all_tokens[addr] = set()
     
     # Add the token and it's address
