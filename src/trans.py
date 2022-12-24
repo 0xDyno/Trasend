@@ -174,7 +174,8 @@ def sender_native(w3: Web3, sender: Wallet, receivers: list, value) -> list:
     amount = str(convert_to_normal_view(value, 18))
 
     for i in range(len(receivers_str)):
-        assist.create_progress_bar(i, len(receivers_str))
+        if len(receivers_str) > 1:
+            assist.create_progress_bar(i, len(receivers_str))
         tx_hash = _send_native(w3, chain_id, sender, nonce + i, receivers_str[i], value)
 
         txs.append(Transaction(chain_id, time.time(), receivers[i], sender, amount, tx_hash))
@@ -256,7 +257,8 @@ def sender_erc20(erc20, token: Token, sender: Wallet, receivers: list, amount) -
     save_amount = str(convert_to_normal_view(amount, token.decimal))
 
     for i in range(len(receivers_str)):
-        assist.create_progress_bar(i, len(receivers_str))
+        if len(receivers_str) > 1:
+            assist.create_progress_bar(i, len(receivers_str))
         tx_hash = _send_erc20(erc20, sender.addr, sender.key(), nonce + i, receivers_str[i], amount)
         tx = Transaction(chain_id, time.time(), receivers[i], sender, save_amount, tx_hash, token.symbol, token.sc_addr)
         txs.append(tx)

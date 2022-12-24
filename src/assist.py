@@ -56,9 +56,10 @@ def get_fernet_key():
 
 
 def print_ask(wallets=None, text_before=None, text_after=None, text_in_input=None) -> str:
-    """Prints wallets and text if given, ask to input text.
+    """
+    Ask to input text.
     -> Use this when you don't need to print wallets.
-    -> If you need print wallets - use inner method of Manager
+        (to print - use inner method of Manager)
     :param wallets: list with wallets
     :param text_before: prints text before wallets list
     :param text_after: prints text after wallets list
@@ -159,30 +160,30 @@ def check_label(label_set: set, label):
 
 
 def check_private_key(keys: set, wallets: list, key: str):
+    """
+    Checks if it's real private key
+    throw InterruptedError or ValueError if not
+    """
     if not key:
         raise InterruptedError(texts.exited)
-
-    if not is_it_key(key):
-        raise ValueError(texts.error_not_private_key)
-
-    if keys:									# if keys not empty...
-        if key in keys:  						# If exits - tell the label of the wallet
-            label = "> Mistake, can't find"
-            for wallet in wallets:  			# find this wallet
-                if key == wallet.key():  		# if this wallet - same what the user wrote
-                    label = wallet.label  		# get the label
-            raise ValueError(texts.error_wallet_exist_with_label.format(label))
-
-    try:									# last check - to be sure that's
-        Account.privateKeyToAccount(key).address	# 100% private key
+    
+    try:
+        Account.privateKeyToAccount(key).address
     except binascii.Error:
         raise ValueError(texts.error_not_private_key)
+    else:
+        if keys:									# if keys not empty...
+            if key in keys:  						# If exits - tell the label of the wallet
+                label = "> Mistake, can't find"
+                for wallet in wallets:  			# find this wallet
+                    if key == wallet.key():  		# if this wallet - same what the user wrote
+                        label = wallet.label  		# get the label
+                raise ValueError(texts.error_wallet_exist_with_label.format(label))
     
 
-def check_wallets(wallets: list) -> True:
+def check_wallets(wallets: list):
     if not wallets:
         raise ValueError(texts.no_wallets)
-    return True
     
     
 def check_wallet_type(wallet: Wallet) -> bool:
@@ -217,7 +218,7 @@ def generate_wallet(w3, set_labels, set_keys, result_list):
     if key not in set_keys:  						# check we don't have it
         label = generate_label(set_labels)  		# generate unique label
         wallet = Wallet(key, label)  				# create wallet
-        update_wallet(w3, wallet, set_labels)		# update it
+        update_wallet(w3, wallet, set_labels, False)    # update it
 
         result_list.append(wallet)				# save it
     else:										# If we have that key - try again... tho I doubt it
@@ -226,12 +227,10 @@ def generate_wallet(w3, set_labels, set_keys, result_list):
 
 def update_wallets(w3: Web3, wallets, set_labels):
     """Create threads to update wallets and sync TXs"""
-    check_wallets(wallets)
-
     list_daemons = list()
     for wallet in wallets:  # for each wallet
         if threads.can_create_daemon():  # if allowed thread creating - start a new thread
-            thread = threads.start_todo(update_wallet, True, w3, wallet, set_labels, True)
+            thread = threads.start_todo(update_wallet, True, w3, wallet, set_labels)
             list_daemons.append(thread)  # add thread to the list
         else:
             time.sleep(settings.wait_to_create_daemon_again)
@@ -239,7 +238,7 @@ def update_wallets(w3: Web3, wallets, set_labels):
     [daemon.join() for daemon in list_daemons if daemon.is_alive()]  # wait will all threads finish
 
 
-def update_wallet(w3: Web3, wallet: Wallet, set_labels: set, update_tx=False):
+def update_wallet(w3: Web3, wallet: Wallet, set_labels: set, update_tx=True):
     """
     Receives Wallet. If the wallet doesn't have an address - method parses it and adds
     After that it updates balance, nonce & sync TXs if asked
@@ -257,11 +256,12 @@ def update_wallet(w3: Web3, wallet: Wallet, set_labels: set, update_tx=False):
     wallet.nonce = w3.eth.get_transaction_count(wallet.addr)  		# update nonce
 
     if update_tx:
-        update_txs_for_wallet(wallet)  # updates txs list and each tx if status == None
+        update_txs_for_wallet(wallet)   # add new TXs to the wallet
+        # updates txs list and each tx if status == None
         [trans.update_tx(w3, tx) for tx in wallet.txs if tx.status is None]
 
 
-def get_wallet_index(wallets_list: list, set_addr: set, set_labels: set, line: str | Wallet) -> int:
+def get_wallet_index(line: str | Wallet, wallets_list: list, set_addr: set, set_labels: set) -> int:
     """
     Returns wallet index in the list from: Waller obj or it's number, label or address.
     :param wallets_list: list with wallets
@@ -314,7 +314,7 @@ def delete_txs_history(wallets: list):
 
 def update_txs_for_wallet(wallet):
     if wallet.txs:							# skip 1 check on each iteration if there are no txs at all
-        for tx in manager.Manager.all_txs:
+        for tx in manager.Manager.all_txs:                                      # this one
             if (wallet.addr == tx.receiver or wallet.addr == tx.sender) and tx not in wallet.txs:
                 wallet.txs.append(tx)
     else:

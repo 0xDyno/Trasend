@@ -58,7 +58,8 @@ def main():
                     print("\n%s\n---------------------" % texts.instruction_main)
                 case _:
                     print(texts.wrong_command_main)
-        except (AssertionError, TypeError, IndexError, ValueError, InterruptedError) as e:
+        except (AssertionError, TypeError, IndexError,
+                ValueError, InterruptedError, PermissionError) as e:
             print(e)
         except (ConnectionError, MaxRetryError, NewConnectionError, ConnectTimeout):
             print("\n> Error with connection. Probably you don't have internet connection.")
@@ -67,12 +68,12 @@ def main():
             break
             
             
-def connect(point=None):
+def connect(rpc=None):
     count = 1
     
     while count < 6:
         print(texts.trying_connect, end=" ")
-        connection = Web3(Web3.HTTPProvider(point))
+        connection = Web3(Web3.HTTPProvider(rpc))
         
         if connection.isConnected():
             print(texts.success)
@@ -82,7 +83,7 @@ def connect(point=None):
             print(f"Attempt #{count} - Failed \n"
                   "> RPC point doesn't work. Write you RPC point here or change via settings:")
             new_point = input("> ")
-            point = new_point if new_point else point
+            rpc = new_point if new_point else rpc
         count += 1
     else:
         raise InterruptedError("> Wasn't able to connect to the network. Try again later.")
@@ -91,8 +92,8 @@ def connect(point=None):
 if __name__ == "__main__":
     try:
         m = connect(RPC_Point)
-    except InterruptedError as e:
-        print(e)
+    except InterruptedError as ie:
+        print(ie)
     else:
         try:
             main()
