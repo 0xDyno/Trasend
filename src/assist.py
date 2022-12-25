@@ -27,16 +27,6 @@ def confirm(print_before=None):
     return input("> Are you sure? Write \"y\" to confirm: ").lower().strip() == "y"
 
 
-def is_it_addr(line: str) -> bool:
-    """return True if it's like address. False - if it's 100% not address"""
-    return line.startswith("0x") and len(line) == settings.address_length
-
-
-def is_it_key(line: str) -> bool:
-    """return True if it's like private key. False - if it's 100% not private key"""
-    return line.startswith("0x") and len(line) == settings.private_key_length
-
-
 def get_new_connection() -> Web3:
     connection = print_ask(text_in_input="Write new connection > ")
     print(texts.trying_connect, end=" ")
@@ -101,19 +91,57 @@ def print_all_info(list_with_wallets):
 def print_all_txs(chain_id: int):
     """Prints all TXs with current network (chainId)"""
     all_txs_for_chain = [tx for tx in manager.Manager.all_txs if chain_id == tx.chain_id]       # get all txs for chain
-    if not all_txs_for_chain:                                                                    # if no TXs - tell it
-        raise ValueError(texts.no_txs_for_chain.format(settings.chain_name[chain_id]))
-    [print(tx) for tx in all_txs_for_chain]                                                     # or print them
+    all_txs_for_chain.reverse()
+    [print("\t", tx.str_no_bc()) for tx in all_txs_for_chain]                                   # or print them
+    print("> Chain:", settings.chain_name.get(chain_id))
 
 
 def print_txs_for_wallet(chain_id: int, wallet: Wallet):
     """Prints wallet all txs for the wallet in given network"""
-    print(settings.chain_name[chain_id] + " | " + wallet.__str__())
     update_txs_for_wallet(wallet)
-
-    for tx in wallet.txs:
+    for tx in wallet.get_reversed_txs():
         if tx.chain_id == chain_id:
             print("\t" + tx.str_no_bc())
+            
+    print(settings.chain_name[chain_id] + " | " + wallet.__str__())
+
+
+def print_gas_price_info(chain_id: int):
+    """Prints info about current gas. It's different for every blockchain,
+    because they work in different way.
+    3 ways -> usual, london - only used gas price, burn fees & priority """
+    if manager.Manager.gas_price is None or manager.Manager.max_priority is None:
+        print(f"No info yet, try again... now. It updates every {settings.update_gas_every} secs")
+        return
+    
+    def type_1_2():
+        """Use to print info for blockchains, that don't use priority"""
+        gas = Web3.fromWei(manager.Manager.gas_price, "gwei")
+        network_gas = Web3.fromWei(manager.Manager.network_gas_price, "gwei")
+        return "Currently: gas = {:.02f} gwei (live {:.2f}) | settings: min gas = {}".format(gas, network_gas,
+                                                                                             settings.min_gas_price)
+    
+    def type_3():
+        gas = Web3.fromWei(manager.Manager.gas_price, "gwei")
+        priority = Web3.fromWei(manager.Manager.max_priority, "gwei")
+        network_gas = Web3.fromWei(manager.Manager.network_gas_price, "gwei")
+        network_priority = Web3.fromWei(manager.Manager.network_max_priority, "gwei")
+    
+        return "Currently: gas = {:.02f} gwei, priority = {} gwei (live {:.2f}, {:.2f}) | " \
+                  "settings: min gas = {} <> min prior = {}".format(gas, priority, network_gas, network_priority,
+                                                                      settings.min_gas_price, settings.min_priority)
+        
+    match settings.chain_update_type[chain_id]:
+        case 1:
+            current_gas = type_1_2()
+        case 2:
+            current_gas = type_1_2()
+        case 3:
+            current_gas = type_3()
+        case _:
+            current_gas = "> Error. Can't print gas info because update type is not known. Contact support."
+    
+    print(current_gas)
 
 
 def generate_label(set_with_labels):
@@ -313,6 +341,8 @@ def delete_txs_history(wallets: list):
 
 
 def update_txs_for_wallet(wallet):
+    """Check all TXs and search related TX to the acc. If finds - adds
+    TX to the wallet txs list"""
     if wallet.txs:							# skip 1 check on each iteration if there are no txs at all
         for tx in manager.Manager.all_txs:                                      # this one
             if (wallet.addr == tx.receiver or wallet.addr == tx.sender) and tx not in wallet.txs:
@@ -497,8 +527,11 @@ def check_saveloads_files(folder: str, path_to_file: str) -> bytes:
 
     # 5. Yes File - no Key		    -->> rename old_file & create Key
     else:
-        creation_date_in_ns = os.stat(path_to_file).st_birthtime			# get the date of creation
-        creation_date = str(date.fromtimestamp(creation_date_in_ns))		# transform into YYYY-MM-DD
+        # Don't work for Windows
+        # creation_date_in_ns = os.stat(path_to_file).st_birthtime			# get the date of creation
+        # creation_date = str(date.fromtimestamp(creation_date_in_ns))		# transform into YYYY-MM-DD
+        
+        creation_date = str(time.localtime().tm_min) + str(time.localtime().tm_sec)
         os.rename(path_to_file, f"{path_to_file}_old_{creation_date}")  	# rename
         key = create_cryptography_key()
 

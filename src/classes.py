@@ -35,7 +35,7 @@ class Wallet:
         line = self.__str__()           # all info
         if self.txs:                    # + all transactions if there are
             line += " | TXs:"
-            for tx in self.txs:
+            for tx in self.get_reversed_txs():
                 line += "\n --- " + self.get_transaction_info(tx)
         else:
             line += " | no tx"
@@ -47,6 +47,12 @@ class Wallet:
 
     def get_eth_balance(self):
         return Web3.fromWei(self.balance_in_wei, "ether")
+    
+    def get_reversed_txs(self) -> list:
+        """Return reversed TXs"""
+        txs = self.txs
+        txs.reverse()
+        return txs
 
     def print_transactions(self):
         for tx in self.txs:
@@ -63,7 +69,7 @@ class Wallet:
         link = settings.chain_explorers[tx.chain_id] + "tx/" + tx.tx      # get explorer + tx = link
         blockchain = settings.chain_name[tx.chain_id]
 
-        format_ = "({blockchain}) {status}: {tx_type} {value} {token} {sender_or_receiver} on {date} ({link})"
+        format_ = "{blockchain:<30} {status}: {tx_type} {value} {token} {sender_or_receiver} on {date} ({link})"
 
         return format_.format(blockchain=blockchain, tx_type=tx_type, value=tx.value, token=tx.symbol,
                               sender_or_receiver=sender_or_receiver, date=tx_time, status=tx.status, link=link)
@@ -72,7 +78,7 @@ class Wallet:
 class Transaction:
     def __init__(self, chain_id: int, time: float, receiver: Wallet | str,
                  sender: Wallet | str, value: str, tx: str, token=None, sc_addr: str = None):
-        """
+        """ If native - token and sc_addr should be None. If Smart-Contract - shouldn't be empty
         :param chain_id: chain_id
         :param time: usual time is secs
         :param receiver: addr str
@@ -86,13 +92,11 @@ class Transaction:
             self.symbol = settings.chain_default_coin[chain_id]
         else:
             self.symbol = token
-            if sc_addr is None or not sc_addr.startswith("0x") or len(sc_addr) != settings.address_length:
-                raise TypeError("Can't create TX, wrong Smart-Contract Address: ", sc_addr)
             self.address = sc_addr
 
         self.chain_id = chain_id                        #_1
-        self.date = datetime.fromtimestamp(time)        #_2 -- datetime
-        self.status = None                              #_3 -- Success / Fail / None
+        self.date = datetime.fromtimestamp(time)        #_2 datetime
+        self.status = None                              #_3 Success / Fail / None
         self.value = value                              #_6 value
         self.tx = tx                                    #_7 transaction hash
 
@@ -101,6 +105,7 @@ class Transaction:
             self.receiver = receiver.addr   # _4 to
         else:
             self.receiver = receiver        # _4 to
+            
         if isinstance(sender, Wallet):
             sender.txs.append(self)
             self.sender = sender.addr       #_5 from
@@ -133,9 +138,6 @@ class Transaction:
 
 class Token:
     def __init__(self, chain_id: int, sc_addr: str, symbol: str, decimal: int, abi):
-        if sc_addr is None or not sc_addr.startswith("0x") or len(sc_addr) != settings.address_length:
-            raise TypeError("Can't create TX, wrong Smart-Contract Address: ", sc_addr)
-        
         self.chain_id = chain_id
         self.sc_addr = Web3.toChecksumAddress(sc_addr)
         self.symbol = symbol

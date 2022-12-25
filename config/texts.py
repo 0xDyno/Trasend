@@ -18,7 +18,7 @@ instruction_main = """\
 ----------------------------------------------------- Delete ------------------------------------------------------
 	 3 Delete wallets        3t Delete All TXs                                      4 Send ETH / ERC-20
 
-01 	- check connection   |  02 	  - gas info    |  03 - change RPC   |  04 - block info   |
+01 	- check connection   |  02 	  - gas info    |  03 - change RPC   |
 upd - update wallets     |  label - to change   |  v  - version      |  e  - exit         |  h - help (menu)\
 """
 wrong_command_main = "> Wrong command. If you need instruction - print h"
@@ -83,7 +83,4 @@ tx_sent = "Sent"
 # input_wallet_identifier = "To choose wallet enter its address, label or number:"
 error_not_web3 = "> Can't create Manager because got wrong Connection type. Should be {} object, got: {}"
 error_no_such_address = "> The address you wrote doesn't exist in the system"
-error_block_doesnt_exist_yet = "> The block doesn't exist in the blockchain yet"
-error_no_info_about_last_block = "> No info about the last block"
-error_cant_update = "> Not a wallet, can't update, tell the devs >> update_wallet"
 change_label = "> Successfully changed old \"{}\" to new \"{}\" for {}"

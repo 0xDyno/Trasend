@@ -3,7 +3,7 @@ import time
 from web3 import Web3
 
 from config import texts, settings
-from src import assist, trans, threads, logs
+from src import assist, trans, threads
 from src.classes import Wallet
 
 
@@ -57,9 +57,8 @@ class Manager:
             self.__set_keys = set()
             self.__set_labels = set()
             self.__set_addr = set()
-            self.__last_block = None  	# updates every N secs by daemon
 
-            self._load_wallets()		# Load Wallets
+            self.__load_wallets()		# Load Wallets
             self.__load_txs()			# Load Txs
             self.__load_tokens()			# Load Tokens
             # Init sets if there are wallets
@@ -70,28 +69,30 @@ class Manager:
             print(texts.init_finished)
 
             # Start a demon to regularly update info (last block)
-            threads.start_todo(self.__daemon_update_last_block, True)
             threads.start_todo(self.__daemon_update_gas, True)
 
     def __set_new_connection(self, connection: Web3):
         """Checks connection is Web3 and chain id is supported"""
         if not isinstance(connection, Web3):
             raise ValueError(texts.error_not_web3.format(connection, Web3))
-
-        if connection.eth.chain_id not in settings.supported_chains:
+        
+        chain = connection.eth.chain_id
+        if not (chain in settings.chain_explorers and
+                chain in settings.chain_default_coin and
+                chain in settings.chain_name):
             raise ValueError(texts.error_chain_not_supported.format(connection.eth.chain_id))
         
         self.__w3 = connection
-        self.__chain_id = self.__w3.eth.chain_id
+        self.__chain_id = chain
         print(texts.connected_to_rpc.format(self.__chain_id, settings.chain_name[self.__chain_id]))
-
+        
 ########################################################################################################################
 # Outer methods ########################################################################################################
 ########################################################################################################################
 
     def connection_status(self):
         is_connected = "Successfully connected" if self.__w3.isConnected() else "Failed to connect"
-        print(f"{is_connected} to {settings.chain_name[self.__w3.eth.chain_id]}")
+        print(f">{is_connected} to: {settings.chain_name[self.__w3.eth.chain_id]}")
 
     def set_new_connection(self):
         self.__set_new_connection(assist.get_new_connection())
@@ -321,50 +322,12 @@ class Manager:
         """Prints TXs for selected wallet in current blockchain"""
         self.__check_wallets()
         self.__check_txs()
-        text = self.__print_ask(text_after="Choose the acc:")  # prints wallets + ask to choose
+        text = self.__print_ask(text_after="Choose the acc:")   # prints wallets + ask to choose
         wallet = self.__wallets[self.__get_wallet_index(text)]
-        assist.print_txs_for_wallet(self.__chain_id, wallet)  # prints txs for that wallet in the network
-
-    def print_block_info(self, block_number=None):
-        """
-        Prints info about transferred block
-        or the last block if block_number is None
-        :param block_number: str or int of the block
-        :return: nothing
-        """
-        # We have to know info about the last block
-        if not self.__check_last_block():
-            print(texts.error_no_info_about_last_block)
-            return
-    
-        # We need to know that's the argument is not None. If None - use Last Block
-        if block_number is None:
-            block = self.__last_block
-        else:
-            # So we have argument, need to check it and get that block
-            if block_number.isnumeric():
-                block_number = int(block_number)
+        assist.print_txs_for_wallet(self.__chain_id, wallet)    # prints txs for that wallet in the network
         
-            # Check the asked block is smaller than the last one
-            if block_number > self.__last_block["number"]:
-                print(texts.error_block_doesnt_exist_yet)
-                return
-            else:
-                block = self.__w3.eth.get_block(block_number)
-    
-        for k, v in block.items():  # get key and value
-            print(k, end=" > ")  # print key, no \n
-        
-            if isinstance(v, bytes):  # if Value is bytes
-                print(self.__w3.toHex(v))  # decode Value and print
-            elif isinstance(v, list):  # if Value is list
-                if not v:  # list empty - print \n
-                    print()
-                else:  # not empty
-                    for el in v:  # decode and print all elements
-                        print(self.__w3.toHex(el))
-            else:  # if Value not list and not bytes - print it
-                print(v)
+    def print_gas_price_info(self):
+        assist.print_gas_price_info(self.__chain_id)
                 
 ########################################################################################################################
 # Inner methods ########################################################################################################
@@ -508,37 +471,9 @@ class Manager:
         return assist.print_ask(self.__wallets, text_before=text_before, text_after=text_after,
                                 text_in_input=text_in_input)
 
-    def __check_last_block(self) -> bool:
-        """
-        Checks that the last block is exist.
-        If it doesn't exist - tries to update it
-        :return: True or False
-        """
-        if self.__last_block is not None:  # exist - Ok, tell it
-            return True
-        else:  # No?
-            print("No info about the last block, updating...")
-            self.__update_last_block()  # Try to update
-    
-            if self.__last_block is not None:  # if not Ok - tell it
-                print(texts.success)
-                return True
-            else:
-                print(texts.fail)  # no? - So sad...
-                return False
-        
-    def __update_last_block(self):
-        self.__last_block = self.__w3.eth.get_block("latest")
-        
-    def __daemon_update_last_block(self):
-        """Daemon updates block even N secs"""
-        while True:
-            self.__update_last_block()  # update
-            time.sleep(settings.update_block_every)  # sleep
-            logs.pr_daemon(f"Daemon, updated the last block, current block is {self.__last_block['number']}")
-
     def __daemon_update_gas(self):
         """Daemon updates gas price & max priority every N secs. Very important info, change with care"""
+        sleep = settings.update_gas_every if settings.update_gas_every > 1 else 1
         while True:		# no change int !! That's wei, so Ok. And web3 doesn't work with float.
             Manager.network_gas_price = self.__w3.eth.gas_price
             Manager.network_max_priority = self.__w3.eth.max_priority_fee
@@ -553,16 +488,16 @@ class Manager:
             min_priority = Web3.toWei(settings.min_priority, "gwei")	# same with priority
             if Manager.max_priority < min_priority:
                 Manager.max_priority = min_priority
-            time.sleep(settings.update_gas_every)
+            time.sleep(sleep)
 
 ########################################################################################################################
 # Save-Load ####### probably it should be changed with decorators.. code is the same, except file, text and vars #######
 ########################################################################################################################
 
-    def _save_wallets(self):
+    def __save_wallets(self):
         assist.save_data(self.__wallets, settings.folder, settings.saved_wallets)
 
-    def _load_wallets(self):
+    def __load_wallets(self):
         print(texts.loading_wallets, end=" ")  		# Start
         loaded_data = assist.load_data(settings.folder, settings.saved_wallets)
         if loaded_data is None:
@@ -615,4 +550,4 @@ class Manager:
         self.__save_txs()
         self.__save_tokens()
         assist.delete_txs_history(self.__wallets)		# Delete tx_list (+ txs from wallets)
-        self._save_wallets()
+        self.__save_wallets()

@@ -2,10 +2,10 @@ from web3 import Web3
 from requests import ConnectTimeout
 from urllib3.exceptions import MaxRetryError, NewConnectionError
 
+import user_settings
 from config import texts
-from config.settings import RPC_Point, version
+from config.settings import version
 from src.manager import Manager
-from src.trans import print_gas_price_info
 
 
 def main():
@@ -39,11 +39,9 @@ def main():
                 case "01":                            # check connection
                     m.connection_status()
                 case "02":                            # last block info
-                    print_gas_price_info()
+                    m.print_gas_price_info()
                 case "03":                            # change connection
                     m.set_new_connection()
-                case "04":                            # print block info
-                    m.print_block_info()
                 case "upd":                           # update wallets
                     m.update_wallets()
                 case "label":                         # change label
@@ -68,8 +66,9 @@ def main():
             break
             
             
-def connect(rpc=None):
+def connect():
     count = 1
+    rpc = user_settings.RPC_Point
     
     while count < 6:
         print(texts.trying_connect, end=" ")
@@ -81,9 +80,9 @@ def connect(rpc=None):
             return manager
         else:
             print(f"Attempt #{count} - Failed \n"
-                  "> RPC point doesn't work. Write you RPC point here or change via settings:")
-            new_point = input("> ")
-            rpc = new_point if new_point else rpc
+                  "> RPC point doesn't work. Change new RPC in user_settings.py or write here")
+            new_rpc = input("> ").strip()
+            rpc = new_rpc if new_rpc else rpc
         count += 1
     else:
         raise InterruptedError("> Wasn't able to connect to the network. Try again later.")
@@ -91,9 +90,9 @@ def connect(rpc=None):
 
 if __name__ == "__main__":
     try:
-        m = connect(RPC_Point)
-    except InterruptedError as ie:
-        print(ie)
+        m = connect()
+    except Exception as ee:
+        print(ee)
     else:
         try:
             main()

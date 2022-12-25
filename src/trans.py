@@ -17,76 +17,123 @@ Use send_
 """
 
 
-def print_gas_price_info():
-    """Prints info about current gas"""
-    if manager.Manager.gas_price is None or manager.Manager.max_priority is None:
-        print(f"No info yet, try again... now. It updates every {settings.update_gas_every} secs")
-        return
-    gas = Web3.fromWei(manager.Manager.gas_price, "gwei")
-    priority = Web3.fromWei(manager.Manager.max_priority, "gwei")
-    network_gas = Web3.fromWei(manager.Manager.network_gas_price, "gwei")
-    network_priority = Web3.fromWei(manager.Manager.network_max_priority, "gwei")
-
-    current_gas = "Current state: gas = {:.02f} gwei, priority = {} gwei (live {:.2f}, {:.2f}) | " \
-        "settings: min gas = {} <> min prior = {}".format(gas, priority, network_gas, network_priority,
-                                                          settings.min_gas_price, settings.min_priority)
-
-    print(current_gas)
-
-
-def get_max_fee(gas: int):
-    return (manager.Manager.gas_price + manager.Manager.max_priority) * gas
-
-
 def print_price_and_confirm_native(chain_id, value, receivers: int) -> bool:
-    """Prints the price for the transaction and ask to confirm before sending """
-    if receivers > 1:
-        tr = "transactions"
-    else:
-        tr = "transaction"
+    """Prints the price for the transaction and ask to confirm before sending"""
+    def type_one():
+        base_fee_wei = manager.Manager.gas_price * settings.gas_native
+        base_fee = Web3.fromWei(base_fee_wei * receivers, "ether")
+        
+        total = base_fee + total_send
+
+        return f"\nFor {receivers} {tr}.\n" \
+               f"Amount: {total_send:.3f} {coin}\n" \
+               f"Fee: {base_fee:.4f} {coin}\n" \
+               f"Total: {total:.4f} {coin}\n"
+    
+    def type_1_2(use_priority: bool):
+        """
+        If it's type 3, use_priority should be True
+        If it's type 2, use_priority should be False
+        """
+        priority = manager.Manager.max_priority if use_priority else 0
+        
+        base_fee_wei = (manager.Manager.network_gas_price + priority) * settings.gas_native
+        base_fee = Web3.fromWei(base_fee_wei * receivers, "ether")
+        total_average = base_fee + total_send
+        
+        max_fee_wei = (manager.Manager.gas_price + priority) * settings.gas_native
+        max_fee = Web3.fromWei(max_fee_wei * receivers, "ether")
+        total_max = max_fee + total_send
+        
+        return f"\nFor {receivers} {tr}:\n" \
+               f"Amount: {total_send:.3f} {coin}\n" \
+               f"Base Fee: {base_fee:.4f} {coin} | Max Fee: {max_fee:.4f} {coin}\n" \
+               f"Total: {total_average:.4f} {coin} (max {total_max:.4f} {coin})\n"
+    
     coin = settings.chain_default_coin[chain_id]
-    base_fee = (manager.Manager.network_gas_price + manager.Manager.max_priority) * settings.gas_native
-    max_fee = (manager.Manager.gas_price + manager.Manager.max_priority) * settings.gas_native
+    tr = "transactions" if receivers > 1 else "transaction"
     total_send = Web3.fromWei(value * receivers, "ether")
 
-    base_fee = Web3.fromWei(base_fee * receivers, "ether")
-    max_fee = Web3.fromWei(max_fee * receivers, "ether")
-
-    total_base = base_fee + total_send
-    total_max = max_fee + total_send
-    ask = f"\nFor {receivers} {tr}. Amount: {total_send:.3f} {coin}\n" \
-          f"Base Fee: {base_fee:.4f} {coin} | Max Fee: {max_fee:.4f} {coin}\n" \
-          f"Total: {total_base:.4f} {coin} (max {total_max:.4f} {coin})\n"
+    match settings.chain_update_type[chain_id]:
+        case 1:
+            ask = type_one()
+        case 2:
+            ask = type_1_2(use_priority=False)
+        case 3:
+            ask = type_1_2(use_priority=True)
+        case _:
+            ask = "> Error. Can't calculate gas info because update type is not known."
+    
     return assist.confirm(print_before=ask)
 
 
 def print_price_and_confirm_erc20(token: Token, erc20, sender, receivers: int, amount) -> bool:
+    def type_1():
+        print("TYPE - 1")
+        base_fee = manager.Manager.gas_price * gas
+        total_fee_base = Web3.fromWei(base_fee * receivers, "ether")
+        return f"\nFor {receivers} {tr}:\n" \
+               f"Tokens: {total_send:.2f} {symb}\n" \
+               f"Fee: {total_fee_base:.4f} {coin}\n"
+    
+    def type_2_3(use_priority: bool):
+        """
+        If it's type 3, use_priority should be True
+        If it's type 2, use_priority should be False
+        """
+        print("TYPE 2 - 3")
+        priority = manager.Manager.max_priority if use_priority else 0
+        
+        base_fee = (manager.Manager.network_gas_price + priority) * gas
+        max_fee = (manager.Manager.gas_price + priority) * gas_max
+    
+        total_fee_base = Web3.fromWei(base_fee * receivers, "ether")
+        total_fee_max = Web3.fromWei(max_fee * receivers, "ether")
+    
+        return f"\nFor {receivers} {tr}:\n" \
+               f"Tokens: {total_send:.2f} {symb}\n" \
+               f"Base Fee: {total_fee_base:.4f} {coin} | Max Can Be Used: {total_fee_max:.4f} {coin}\n"
+        
     symb = token.symbol
     coin = settings.chain_default_coin[token.chain_id]
-    if receivers > 1:
-        tr = "transactions"
-    else:
-        tr = "transaction"
+    total_send = convert_to_normal_view(amount, token.decimal) * receivers
+    tr = "transactions" if receivers > 1 else "transaction"
+    gas = get_native_gas_for_erc20(erc20, sender, amount)
+    gas_max = get_max_gas_for_erc20(erc20, sender, amount)
 
-    try:		# Count Base & Max fee from Estimated gas * multiplier
-        data = {"from": sender.addr}
-        gas = int(erc20.functions.transfer(sender.addr, amount).estimateGas(data) * settings.multiply_gas)
-        base_fee = (manager.Manager.network_gas_price + manager.Manager.max_priority) * gas
-        max_fee = (manager.Manager.gas_price + manager.Manager.max_priority) * gas
-    except Exception as e:		# If we can't do it by some reason - use default settings
-        print("Failed to get live gas required, use the settings. Error:", e)
-        base_fee = (manager.Manager.network_gas_price + manager.Manager.max_priority) * settings.average_gas_erc20
-        max_fee = (manager.Manager.gas_price + manager.Manager.max_priority) * settings.gas_erc20
+    match settings.chain_update_type[erc20.web3.eth.chain_id]:
+        case 1:
+            ask = type_1()
+        case 2:
+            ask = type_2_3(use_priority=False)
+        case 3:
+            ask = type_2_3(use_priority=True)
+        case _:
+            ask = "> Error. Can't calculate gas info because update type is not known."
 
-    amount = convert_to_normal_view(amount, token.decimal)
-    total_send = amount * receivers
-
-    total_fee_base = Web3.fromWei(base_fee * receivers, "ether")
-    total_fee_max = Web3.fromWei(max_fee * receivers, "ether")
-
-    ask = f"\nFor {receivers} {tr}. Tokens: {total_send:.2f} {symb}\n" \
-          f"Base Fee: {total_fee_base:.4f} {coin} | Max Can Be Used: {total_fee_max:.4f} {coin}\n"
     return assist.confirm(print_before=ask)
+
+    
+def get_max_gas_for_erc20(erc20, sender: Wallet, amount):
+    return int(get_native_gas_for_erc20(erc20, sender, amount) * settings.multiply_gas)
+
+
+def get_native_gas_for_erc20(erc20, sender: Wallet, amount):
+    """
+    Check required gas for transaction and multiply it, because in general web3
+    calculates gas wrong for ~10%. So in usual multiply is x1.2. But in case of
+    BNB blockchains - it multiplies for 1.7x, because BNBchains return wrong required gas
+    
+    If it can't calculate  - uses default gas
+    """
+    multi = 1.7 if erc20.web3.eth.chain_id == 56 or erc20.web3.eth.chain_id == 97 else 1.2
+    
+    try:
+        data = {"from": sender.addr}
+        return int(erc20.functions.transfer(sender.addr, amount).estimateGas(data)) * multi
+    except Exception as e:
+        print("Failed to calculate required gas, will be used from the settings. Error:", e)
+        return settings.average_gas_erc20
 
 
 def convert_to_normal_view(not_normal: int, decimal) -> Decimal:
@@ -176,7 +223,7 @@ def sender_native(w3: Web3, sender: Wallet, receivers: list, value) -> list:
     for i in range(len(receivers_str)):
         if len(receivers_str) > 1:
             assist.create_progress_bar(i, len(receivers_str))
-        tx_hash = _send_native(w3, chain_id, sender, nonce + i, receivers_str[i], value)
+        tx_hash = __send_native(w3, chain_id, sender, nonce + i, receivers_str[i], value)
 
         txs.append(Transaction(chain_id, time.time(), receivers[i], sender, amount, tx_hash))
 
@@ -184,40 +231,31 @@ def sender_native(w3: Web3, sender: Wallet, receivers: list, value) -> list:
     return txs
 
 
-def _send_native(w3: Web3, chain_id: int, sender: Wallet, nonce, receiver: Wallet, value) -> str:
+def __send_native(w3: Web3, chain_id: int, sender: Wallet, nonce, receiver: str, value) -> str:
     """
-    Tries to send transaction with the last ETH updates. But it won't work for networks that didn't update
-    So I wrote also second variant to send transaction, that happens when we receive an error
+    Send TXs in usual way if priority doesn't support or with new Type 2
     :return: transaction hash, string
     """
-    try:
-        tx = {
-            "from": sender.addr,
-            "to": receiver,
-            "gas": 21000,
-            "maxFeePerGas": manager.Manager.gas_price,
-            "maxPriorityFeePerGas": manager.Manager.max_priority,
-            "value": value,
-            "data": b'',
-            "nonce": nonce,
-            "type": 2,
-            "chainId": chain_id
-        }
-        signed_tx = w3.eth.account.sign_transaction(tx, sender.key())
-        tx_hash_hexbytes = w3.eth.send_raw_transaction(signed_tx.rawTransaction)
-        return w3.toHex(tx_hash_hexbytes)
-    except Exception:		# Some BlockChains doesn't work with TX type 2, so here I try to use old way
-        tx = {
-            "to": receiver,
-            "nonce": sender.nonce,
-            "gas": 21000,
-            "gasPrice": manager.Manager.gas_price,
-            "value": value,
-            "chainId": chain_id
-        }
-        signed_tx = w3.eth.account.sign_transaction(tx, sender.key())
-        tx_hash_hexbytes = w3.eth.send_raw_transaction(signed_tx.rawTransaction)
-        return w3.toHex(tx_hash_hexbytes)
+    tx = {
+        "to": receiver,
+        "nonce": nonce,
+        "gas": 21000,
+        "value": value,
+        "chainId": chain_id
+    }
+    
+    if settings.chain_update_type[chain_id] == 3:
+        tx["from"] = sender.addr
+        tx["maxFeePerGas"] = manager.Manager.gas_price
+        tx["maxPriorityFeePerGas"] = manager.Manager.max_priority
+        tx["data"] = b''
+        tx["type"] = 2
+    else:
+        tx["gasPrice"] = manager.Manager.gas_price
+
+    signed_tx = w3.eth.account.sign_transaction(tx, sender.key())
+    tx_hash_hexbytes = w3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    return w3.toHex(tx_hash_hexbytes)
 
 
 # SENDING ERC - 20 TOKENS
@@ -242,8 +280,7 @@ def update_erc_20(w3: Web3, sc_addr):
         symbol = erc20.symbol
         decimal = erc20.decimals
         abi = erc20.contract.abi
-    return assist.add_smart_contract_token(w3.eth.chain_id, sc_addr,
-                                                symbol, decimal, abi)
+    return assist.add_smart_contract_token(w3.eth.chain_id, sc_addr, symbol, decimal, abi)
 
 
 
@@ -255,11 +292,13 @@ def sender_erc20(erc20, token: Token, sender: Wallet, receivers: list, amount) -
     nonce = sender.nonce
     chain_id = erc20.web3.eth.chain_id
     save_amount = str(convert_to_normal_view(amount, token.decimal))
-
+    gas = get_max_gas_for_erc20(erc20, sender, amount)
+    
     for i in range(len(receivers_str)):
         if len(receivers_str) > 1:
             assist.create_progress_bar(i, len(receivers_str))
-        tx_hash = _send_erc20(erc20, sender.addr, sender.key(), nonce + i, receivers_str[i], amount)
+            
+        tx_hash = __send_erc20(erc20, chain_id, gas, sender.addr, sender.key(), nonce + i, receivers_str[i], amount)
         tx = Transaction(chain_id, time.time(), receivers[i], sender, save_amount, tx_hash, token.symbol, token.sc_addr)
         txs.append(tx)
 
@@ -267,20 +306,26 @@ def sender_erc20(erc20, token: Token, sender: Wallet, receivers: list, amount) -
     return txs
 
 
-def _send_erc20(erc20, sender: str, sender_key: str, nonce, receiver: str, amount):
+def __send_erc20(erc20, chain_id: int, gas: int, sender: str, sender_key: str, nonce, receiver: str, amount):
     tx_dict = {
-        "from": sender,
-        "chainId": erc20.web3.eth.chain_id,
-        "nonce": nonce,
-        "maxFeePerGas": manager.Manager.gas_price,
-        "maxPriorityFeePerGas": manager.Manager.max_priority,
-        "type": 2,
-        "gas": settings.gas_erc20,
-    }
+            "from": sender,
+            "chainId": chain_id,
+            "nonce": nonce,
+            "gas": gas,
+        }
+    
+    if settings.chain_update_type[chain_id] == 3:
+        tx_dict["type"] = 2
+        tx_dict["maxFeePerGas"] = manager.Manager.gas_price
+        tx_dict["maxPriorityFeePerGas"] = manager.Manager.max_priority
+    else:
+        tx_dict["gasPrice"] = manager.Manager.gas_price
+        
+    
     raw_tx = erc20.functions.transfer(receiver, amount).build_transaction(tx_dict)
     signed = erc20.web3.eth.account.sign_transaction(raw_tx, sender_key)
     tx_hash = erc20.web3.eth.send_raw_transaction(signed.rawTransaction)
-    return Web3.toHex(tx_hash)  # return TX
+    return Web3.toHex(tx_hash)
 
 
 def update_txs(w3: Web3, txs_list: list):
@@ -292,6 +337,9 @@ def update_txs(w3: Web3, txs_list: list):
 
 
 def update_tx(w3: Web3, tx: Transaction):
+    if tx.chain_id != w3.eth.chain_id:
+        return
+    
     if tx.status is None:										# if no status
         receipt = w3.eth.wait_for_transaction_receipt(tx.tx)  	# wait for the result
         if receipt["status"] == 0:								# and change it
