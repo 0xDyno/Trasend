@@ -155,9 +155,9 @@ def convert_to_normal_view_str(decimal, not_normal=1) -> str:
 def get_list_with_str_addresses(wallets: list):
     """Receives list with Wallets or str-Addresses and convert it to str-Addresses"""
     new_list = wallets.copy()					# make copy
-    for i in range(len(new_list)):
-        if isinstance(new_list[i], Wallet):		# if element is Wallet
-            new_list[i] = new_list[i].addr		# change it with it's addr
+    for i, wallet in enumerate(new_list):
+        if isinstance(wallet, Wallet):          # if element is Wallet
+            new_list[i] = wallet.addr           # change it with it's addr
     return new_list
 
 
@@ -223,8 +223,8 @@ def sender_native(w3: Web3, sender: Wallet, receivers: list, value) -> list:
     for i in range(len(receivers_str)):
         if len(receivers_str) > 1:
             assist.create_progress_bar(i, len(receivers_str))
+            
         tx_hash = __send_native(w3, chain_id, sender, nonce + i, receivers_str[i], value)
-
         txs.append(Transaction(chain_id, time.time(), receivers[i], sender, amount, tx_hash))
 
     threads.start_todo(update_txs, True, w3, txs)

@@ -50,7 +50,7 @@ class Wallet:
     
     def get_reversed_txs(self) -> list:
         """Return reversed TXs"""
-        txs = self.txs
+        txs = self.txs.copy()
         txs.reverse()
         return txs
 

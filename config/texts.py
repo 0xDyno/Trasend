@@ -18,7 +18,7 @@ instruction_main = """\
 ----------------------------------------------------- Delete ------------------------------------------------------
 	 3 Delete wallets        3t Delete All TXs                                      4 Send ETH / ERC-20
 
-01 	- check connection   |  02 	  - gas info    |  03 - change RPC   |
+01  - check connection   |  02 	  - gas info    |  03 - change RPC   |
 upd - update wallets     |  label - to change   |  v  - version      |  e  - exit         |  h - help (menu)\
 """
 wrong_command_main = "> Wrong command. If you need instruction - print h"

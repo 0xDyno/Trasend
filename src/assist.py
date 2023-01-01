@@ -76,17 +76,15 @@ def print_ask(wallets=None, text_before=None, text_after=None, text_in_input=Non
 
 def print_wallets(list_with_wallets):
     """Prints wallets with its index"""
-    length = len(list_with_wallets)
-    for i in range(length):  			# print all addresses
-        print("{:>3}. {}".format(i + 1, list_with_wallets[i]))
+    for i, wallet in enumerate(list_with_wallets, start=1):
+        print("{:>3}. {}".format(i, wallet))
 
 
 def print_all_info(list_with_wallets):
     """Prints wallets with its index and TXs list"""
-    length = len(list_with_wallets)									# prints info with TXs
-    for i in range(length):											# and its index
-        print("{:>3}. {}".format(i + 1, list_with_wallets[i].get_all_info()))
-
+    for i, wallet in enumerate(list_with_wallets, start=1):
+        print("{:>3}. {}".format(i, wallet.get_all_info()))
+        
 
 def print_all_txs(chain_id: int):
     """Prints all TXs with current network (chainId)"""
@@ -127,9 +125,14 @@ def print_gas_price_info(chain_id: int):
         network_gas = Web3.fromWei(manager.Manager.network_gas_price, "gwei")
         network_priority = Web3.fromWei(manager.Manager.network_max_priority, "gwei")
     
-        return "Currently: gas = {:.02f} gwei, priority = {} gwei (live {:.2f}, {:.2f}) | " \
+        to_print = "Currently: gas = {:.01f} gwei, priority = {:.01f} gwei (live {:.2f}, {:.2f}) | " \
                   "settings: min gas = {} <> min prior = {}".format(gas, priority, network_gas, network_priority,
                                                                       settings.min_gas_price, settings.min_priority)
+        
+        if gas == priority and settings.chain_update_type[chain_id] == 3:
+            return to_print + "\n\t(ps: for chains that support gas priority -> gas_price can't be less, than priority)"
+        
+        return to_print
         
     match settings.chain_update_type[chain_id]:
         case 1:
@@ -299,8 +302,8 @@ def get_wallet_index(line: str | Wallet, wallets_list: list, set_addr: set, set_
     :return: Index of selected Wallet in the list
     """
     if isinstance(line, Wallet):
-        for i in range(len(wallets_list)):
-            if wallets_list[i].key() == line.key():
+        for i, wallet in enumerate(wallets_list):
+            if wallet.key() == line.key():
                 return i
 
     if line.isnumeric() and len(line) < 4:		# Min length for label = 4 chars.
@@ -313,23 +316,22 @@ def get_wallet_index(line: str | Wallet, wallets_list: list, set_addr: set, set_
         raise ValueError(texts.error_no_such_address + "\n" + texts.exited)
 
     line = line.lower()
-    for i in range(len(wallets_list)):
-        if wallets_list[i].addr_lower == line or wallets_list[i].label == line:
+    for i, wallet in enumerate(wallets_list):
+        if wallet.addr_lower == line or wallet.label == line:
             return i
 
 
 def import_addrs(path: str):
     """Load addresses from a file, 1 addr per line"""
-    with open(path, "r") as reader:
-        addr_list = reader.read().strip().split("\n")
-
     receivers = list()
-    for addr in addr_list:
-        if addr:
-            try:
-                receivers.append(Web3.toChecksumAddress(addr))
-            except (TypeError, ValueError):
-                print(f"> {addr} is not address")
+    
+    with open(path, "r") as file:
+        for line in file:
+            if line:
+                try:
+                    receivers.append(Web3.toChecksumAddress(line.strip()))
+                except (TypeError, ValueError):
+                    print(f"> {line} is not address")
 
     return receivers
 
@@ -426,13 +428,12 @@ def import_wallets(file_path: str, wallets: list, keys: set, labels: set) -> lis
     :return: list with imported wallets
     """
     unique_data = set()
-
     def check_duplicates():					# check there's no duplicates
-        for i in range(len(elements)):
-            if elements[i] in unique_data:
-                unique_data.add(elements[i])
-                return elements[i]
-            unique_data.add(elements[i])
+        for element in elements:
+            if element in unique_data:
+                unique_data.add(element)
+                return element
+            unique_data.add(element)
         return False
 
     wallets_list = list()

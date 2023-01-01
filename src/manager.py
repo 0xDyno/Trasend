@@ -284,14 +284,14 @@ class Manager:
         else:
             print(texts.exited)
         total = len(wallets)
-        for i in range(total):
-            instruction = "> {} / {}. How would you like to call it -> {}?".format(i, total, wallets[i])
+        for i, wallet in enumerate(wallets, start=1):
+            instruction = "> {} / {}. How would you like to call it -> {}?".format(i, total, wallet)
             new = assist.ask_label(self.__set_labels, instruction=instruction)
-            old = wallets[i].label
-            wallets[i].label = new  # Add new label to Wallet
+            old = wallet.label
+            wallet.label = new  # Add new label to Wallet
             self.__set_labels.add(new)  # Add new label to the Set
             self.__set_labels.remove(old)  # Delete old Label from the Set
-            print(texts.change_label.format(old, new, wallets[i].addr))
+            print(texts.change_label.format(old, new, wallet.addr))
         print(texts.exited)
         
     def delete_txs_history(self):
@@ -472,9 +472,14 @@ class Manager:
                                 text_in_input=text_in_input)
 
     def __daemon_update_gas(self):
-        """Daemon updates gas price & max priority every N secs. Very important info, change with care"""
+        """Daemon updates gas price & max priority every N secs. Very important info, change with care
+        All data in int, and that's okay, because 1 - that's wai and 2 - web3 doesn't work with float
+        
+        P.S.: For new update #3 - priority CAN'T be less, than gas_price. So if it's the chain with
+            type 3 and priority higher than gas_price -> we set up gas_price == priority
+        """
         sleep = settings.update_gas_every if settings.update_gas_every > 1 else 1
-        while True:		# no change int !! That's wei, so Ok. And web3 doesn't work with float.
+        while True:
             Manager.network_gas_price = self.__w3.eth.gas_price
             Manager.network_max_priority = self.__w3.eth.max_priority_fee
 
@@ -488,6 +493,13 @@ class Manager:
             min_priority = Web3.toWei(settings.min_priority, "gwei")	# same with priority
             if Manager.max_priority < min_priority:
                 Manager.max_priority = min_priority
+                
+            # For type 3 - gas_price can't be less, than priority. Or we will have errors
+            if settings.chain_update_type[self.__chain_id] == 3:
+                
+                if Manager.gas_price < Manager.max_priority:
+                    Manager.gas_price = Manager.max_priority
+            
             time.sleep(sleep)
 
 ########################################################################################################################

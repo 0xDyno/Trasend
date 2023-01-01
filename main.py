@@ -99,4 +99,4 @@ if __name__ == "__main__":
         finally:
             m.finish_work()
 else:
-    print("> I won't work like that. You have to start the app directly from it's main file")
+    print("> You have to start the app directly")
