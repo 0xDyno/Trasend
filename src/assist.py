@@ -89,7 +89,6 @@ def print_all_info(list_with_wallets):
 def print_all_txs(chain_id: int):
     """Prints all TXs with current network (chainId)"""
     all_txs_for_chain = [tx for tx in manager.Manager.all_txs if chain_id == tx.chain_id]       # get all txs for chain
-    all_txs_for_chain.reverse()
     [print("\t", tx.str_no_bc()) for tx in all_txs_for_chain]                                   # or print them
     print("> Chain:", settings.chain_name.get(chain_id))
 
@@ -97,7 +96,7 @@ def print_all_txs(chain_id: int):
 def print_txs_for_wallet(chain_id: int, wallet: Wallet):
     """Prints wallet all txs for the wallet in given network"""
     update_txs_for_wallet(wallet)
-    for tx in wallet.get_reversed_txs():
+    for tx in wallet.txs:
         if tx.chain_id == chain_id:
             print("\t" + tx.str_no_bc())
             
